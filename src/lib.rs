@@ -465,6 +465,7 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
         NumericArray(res.into_inner())
     }
 
+    /// Convert one `NumericArray` to another using `From` for each element.
     pub fn convert<U>(self) -> NumericArray<U, N>
     where
         N: ArrayLength<U>,
