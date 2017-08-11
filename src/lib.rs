@@ -69,13 +69,16 @@ impl<T, N: ArrayLength<T>> From<GenericArray<T, N>> for NumericArray<T, N> {
     }
 }
 
-impl<T: Copy, N: ArrayLength<T>> Clone for NumericArray<T, N>
+impl<T: Clone, N: ArrayLength<T>> Clone for NumericArray<T, N> {
+    fn clone(&self) -> NumericArray<T, N> {
+        self.map(|x| x.clone())
+    }
+}
+
+impl<T: Copy, N: ArrayLength<T>> Copy for NumericArray<T, N>
 where
     N::ArrayType: Copy,
 {
-    fn clone(&self) -> NumericArray<T, N> {
-        NumericArray { ..*self }
-    }
 }
 
 impl<T, N: ArrayLength<T>> Deref for NumericArray<T, N> {
@@ -859,7 +862,8 @@ mod test {
 
         let c = a + b;
         let d = c * constant!(black_box(5));
+        let e = d << constant!(1);
 
-        assert_eq!(d, NumericArray::new(arr![i32; 15, 35, 55, 75]))
+        assert_eq!(e, NumericArray::new(arr![i32; 30, 70, 110, 150]))
     }
 }
