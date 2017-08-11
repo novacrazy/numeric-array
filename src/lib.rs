@@ -55,12 +55,9 @@ use generic_array::{ArrayLength, GenericArray, GenericArrayIter};
 /// This is useful for situations where the element type and length can be variable,
 /// but you need a generic type bound and don't want to deal with
 /// `T` and `N: ArrayLength<T>` from `NumericArray<T, N>` directly.
-pub trait NumericSequence {
-    /// Array element type
-    type Element;
-
+pub trait NumericSequence<T> {
     /// Array length type
-    type Length: ArrayLength<Self::Element>;
+    type Length: ArrayLength<T>;
 }
 
 /// A numeric wrapper for a `GenericArray`, allowing for easy numerical operations
@@ -74,8 +71,7 @@ pub trait NumericSequence {
 #[repr(C)]
 pub struct NumericArray<T, N: ArrayLength<T>>(GenericArray<T, N>);
 
-impl<T, N: ArrayLength<T>> NumericSequence for NumericArray<T, N> {
-    type Element = T;
+impl<T, N: ArrayLength<T>> NumericSequence<T> for NumericArray<T, N> {
     type Length = N;
 }
 
