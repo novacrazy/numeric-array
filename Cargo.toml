@@ -1,0 +1,9 @@
+[package]
+authors = ["Aaron Trent <novacrazy@gmail.com>"]
+name = "numeric-array"
+version = "0.1.0"
+[dependencies]
+generic-array = "0.8.2"
+nodrop = "0.1.9"
+num-traits = "0.1.40"
+typenum = "1.9.0"
