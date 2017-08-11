@@ -50,6 +50,19 @@ use nodrop::NoDrop;
 use typenum::*;
 use generic_array::{ArrayLength, GenericArray, GenericArrayIter};
 
+/// Defines any `NumericArray` type as its element and length types
+///
+/// This is useful for situations where the element type and length can be variable,
+/// but you need a generic type bound and don't want to deal with
+/// `T` and `N: ArrayLength<T>` from `NumericArray<T, N>` directly.
+pub trait NumericSequence {
+    /// Array element type
+    type Element;
+
+    /// Array length type
+    type Length: ArrayLength<Self::Element>;
+}
+
 /// A numeric wrapper for a `GenericArray`, allowing for easy numerical operations
 /// on the whole sequence.
 ///
@@ -60,6 +73,11 @@ use generic_array::{ArrayLength, GenericArray, GenericArrayIter};
 /// in a single SIMD instruction for all elements at once.
 #[repr(C)]
 pub struct NumericArray<T, N: ArrayLength<T>>(GenericArray<T, N>);
+
+impl<T, N: ArrayLength<T>> NumericSequence for NumericArray<T, N> {
+    type Element = T;
+    type Length = N;
+}
 
 /// Sugar for `NumericArray::new(arr![...])`
 ///
@@ -910,7 +928,7 @@ mod test {
 
         let c = a + b;
         let d = c * nconstant!(black_box(5));
-        let e = d << nconstant!(1);
+        let e = d << nconstant!(1_usize);
 
         assert_eq!(e, NumericArray::new(arr![i32; 30, 70, 110, 150]))
     }
