@@ -1,7 +1,15 @@
 [package]
 authors = ["Aaron Trent <novacrazy@gmail.com>"]
 name = "numeric-array"
+description = "Wrapper around generic-array that adds efficient numeric trait implementations"
+repository = "https://github.com/novacrazy/numeric-array"
+documentations = "https://docs.rs/numeric-array"
 version = "0.1.0"
+keywords = ["generic", "array", "numeric", "simd"]
+include = ["src/**/*", "Cargo.toml"]
+license = "MIT"
+categories = ["data-structures"]
+
 [dependencies]
 generic-array = "0.8.2"
 nodrop = "0.1.9"
