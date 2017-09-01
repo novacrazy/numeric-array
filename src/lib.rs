@@ -1,8 +1,14 @@
-//! `numeric-array` is a wrapper around [`generic-array`](https://github.com/fizyk20/generic-array) that adds efficient numeric trait implementations, often times making use of SIMD instructions and compile-time evaluations.
+//! `numeric-array` is a wrapper around
+//! [`generic-array`](https://github.com/fizyk20/generic-array) that adds
+//! efficient numeric trait implementations, often times making use of
+//! SIMD instructions and compile-time evaluations.
 //!
-//! All stable `std::ops` traits are implemented for `NumericArray` itself, plus the thin `NumericConstant` type, which is required to differeniate constant values from `NumericArray` itself.
+//! All stable `std::ops` traits are implemented for `NumericArray` itself,
+//! plus the thin `NumericConstant` type, which is required to
+//! differeniate constant values from `NumericArray` itself.
 //!
-//! Additionally, most of `num_traits` are implemented, including `Num` itself. So you can even use a whole array as a generic number.
+//! Additionally, most of `num_traits` are implemented,
+//! including `Num` itself. So you can even use a whole array as a generic number.
 //!
 //! Example:
 //!
@@ -24,29 +30,38 @@
 //! }
 //! ```
 //!
-//! When used with `RUSTFLAGS = "-C opt-level=3 -C target-cpu=native"`, then Rust and LLVM are smart enough to turn almost all operations into SIMD instructions, or even just evaluate them at compile time. The above example is actually evaluated at compile time, so if you were to view the assembly it would show the result only. Rust is pretty smart.
+//! When used with `RUSTFLAGS = "-C opt-level=3 -C target-cpu=native"`,
+//! then Rust and LLVM are smart enough to turn almost all operations
+//! into SIMD instructions, or even just evaluate them at compile time.
+//! The above example is actually evaluated at compile time,
+//! so if you were to view the assembly it would show the result only.
+//! Rust is pretty smart.
 //!
-//! Therefore, this is ideal for situations where simple component-wise operations are required for arrays.
+//! Therefore, this is ideal for situations where simple component-wise
+//! operations are required for arrays.
 //!
-#![deny(missing_docs)]
+
+//#![deny(missing_docs)]
 
 extern crate num_traits;
 extern crate typenum;
 
 #[cfg_attr(test, macro_use)]
 extern crate generic_array;
-extern crate nodrop;
 
-use std::{mem, ptr, slice};
+use std::{cmp, mem, ptr, slice};
+
+use std::mem::ManuallyDrop;
 
 use std::borrow::{Borrow, BorrowMut};
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
 use std::ops::{Add, Sub};
 
+use std::iter::FromIterator;
+
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 
-use nodrop::NoDrop;
 use typenum::*;
 use generic_array::{ArrayLength, GenericArray, GenericArrayIter};
 
@@ -91,7 +106,8 @@ macro_rules! narr {
 }
 
 /// This is required to allow `NumericArray` to be operated on by both other `NumericArray`
-/// instances and constants, with generic types, because some type `U` supercedes `NumericArray<U, N>`
+/// instances and constants, with generic types,
+/// because some type `U` supercedes `NumericArray<U, N>`
 ///
 /// As a result, constants must be wrapped in this totally
 /// transparent wrapper type to differentiate the types to Rust.
@@ -132,7 +148,7 @@ impl<T, N: ArrayLength<T>> From<GenericArray<T, N>> for NumericArray<T, N> {
 
 impl<T: Clone, N: ArrayLength<T>> Clone for NumericArray<T, N> {
     fn clone(&self) -> NumericArray<T, N> {
-        self.map(|x| x.clone())
+        NumericArray(self.0.clone())
     }
 }
 
@@ -165,7 +181,10 @@ where
     }
 }
 
-impl<T, U, N: ArrayLength<T> + ArrayLength<U>> PartialEq<GenericArray<U, N>> for NumericArray<T, N> where T: PartialEq<U> {
+impl<T, U, N: ArrayLength<T> + ArrayLength<U>> PartialEq<GenericArray<U, N>> for NumericArray<T, N>
+where
+    T: PartialEq<U>
+{
     fn eq(&self, rhs: &GenericArray<U, N>) -> bool {
         **self == **rhs
     }
@@ -175,9 +194,9 @@ impl<T, U, N: ArrayLength<T> + ArrayLength<U>> PartialEq<GenericArray<U, N>> for
     }
 }
 
-impl<T, N: ArrayLength<T>> ::std::cmp::Eq for NumericArray<T, N>
+impl<T, N: ArrayLength<T>> cmp::Eq for NumericArray<T, N>
 where
-    T: ::std::cmp::Eq,
+    T: cmp::Eq,
 {
 }
 
@@ -186,7 +205,7 @@ where
     T: PartialOrd,
 {
     #[inline]
-    fn partial_cmp(&self, rhs: &Self) -> Option<::std::cmp::Ordering> {
+    fn partial_cmp(&self, rhs: &Self) -> Option<cmp::Ordering> {
         PartialOrd::partial_cmp(&self.0, &rhs.0)
     }
 
@@ -216,7 +235,7 @@ where
     T: PartialOrd,
 {
     #[inline]
-    fn partial_cmp(&self, rhs: &GenericArray<T, N>) -> Option<::std::cmp::Ordering> {
+    fn partial_cmp(&self, rhs: &GenericArray<T, N>) -> Option<cmp::Ordering> {
         PartialOrd::partial_cmp(&self.0, rhs)
     }
 
@@ -241,13 +260,13 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> ::std::cmp::Ord for NumericArray<T, N>
+impl<T, N: ArrayLength<T>> cmp::Ord for NumericArray<T, N>
 where
-    T: ::std::cmp::Ord,
+    T: cmp::Ord,
 {
     #[inline]
-    fn cmp(&self, rhs: &Self) -> ::std::cmp::Ordering {
-        ::std::cmp::Ord::cmp(&self.0, &rhs.0)
+    fn cmp(&self, rhs: &Self) -> cmp::Ordering {
+        cmp::Ord::cmp(&self.0, &rhs.0)
     }
 }
 
@@ -295,25 +314,7 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
     where
         T: Clone,
     {
-        Self::generate(|| t.clone())
-    }
-
-    /// Generates a new array using the given generator function to create each value.
-    ///
-    /// The generator function is called `N` times, once for each element.
-    pub fn generate<G>(g: G) -> NumericArray<T, N>
-    where
-        G: Fn() -> T,
-    {
-        let mut res: NoDrop<GenericArray<T, N>> = NoDrop::new(unsafe { mem::uninitialized() });
-
-        for dst in res.iter_mut() {
-            unsafe {
-                ptr::write(dst, g());
-            }
-        }
-
-        NumericArray(res.into_inner())
+        NumericArray(GenericArray::generate(|_| t.clone()))
     }
 
     /// Moves all but the last element into a `NumericArray` with one
@@ -334,9 +335,12 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
         N: Sub<B1>,
         Sub1<N>: ArrayLength<T>,
     {
-        use std::{mem, ptr};
-
-        let mut shorter: GenericArray<T, Sub1<N>> = unsafe { mem::uninitialized() };
+        // Safety reasoning:
+        //
+        // This function is safe because data is simply moved around, and the last
+        // element is dropped after everything else has been moved.
+        let mut shorter: ManuallyDrop<GenericArray<T, Sub1<N>>> =
+            ManuallyDrop::new(unsafe { mem::uninitialized() });
 
         for (dst, src) in shorter.iter_mut().zip(self.iter()) {
             unsafe {
@@ -344,11 +348,19 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
             }
         }
 
-        let _last = unsafe { ptr::read(&self.0[N::to_usize() - 1]) };
+        // Move out last element
+        let last = unsafe { ptr::read(&self.0[N::to_usize() - 1]) };
 
+        // Forget all moved elements before the last one is dropped
         mem::forget(self);
 
-        NumericArray(shorter)
+        // Take result out of ManuallyDrop before the last element is dropped
+        let array = ManuallyDrop::into_inner(shorter);
+
+        // Drop last element now, so in case it panics then everything else will drop safely.
+        mem::drop(last);
+
+        NumericArray(array)
     }
 
     /// Moves all the current elements into a new array with one more element than the current one.
@@ -368,9 +380,12 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
         N: Add<B1>,
         Add1<N>: ArrayLength<T>,
     {
-        use std::{mem, ptr};
-
-        let mut longer: GenericArray<T, Add1<N>> = unsafe { mem::uninitialized() };
+        // Safety reasoning:
+        //
+        // This function is safe because it only moves data into another array. There is
+        // no point in which an element could be dropped or cause a panic.
+        let mut longer: ManuallyDrop<GenericArray<T, Add1<N>>> =
+            ManuallyDrop::new(unsafe { mem::uninitialized() });
 
         for (dst, src) in longer.iter_mut().zip(self.iter()) {
             unsafe {
@@ -384,108 +399,7 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
 
         mem::forget(self);
 
-        NumericArray(longer)
-    }
-
-    /// Maps the current array to a new one of the same size using the given function.
-    pub fn map<U, F>(&self, f: F) -> NumericArray<U, N>
-    where
-        N: ArrayLength<U>,
-        F: Fn(&T) -> U,
-    {
-        let mut res: NoDrop<GenericArray<U, N>> = NoDrop::new(unsafe { mem::uninitialized() });
-
-        for (dst, src) in res.iter_mut().zip(self.iter()) {
-            unsafe {
-                ptr::write(dst, f(src));
-            }
-        }
-
-        NumericArray(res.into_inner())
-    }
-
-    /// Same as `map`, but the values are moved rather than referenced.
-    pub fn map_move<U, F>(self, f: F) -> NumericArray<U, N>
-    where
-        N: ArrayLength<U>,
-        F: Fn(T) -> U,
-    {
-        let mut res: NoDrop<GenericArray<U, N>> = NoDrop::new(unsafe { mem::uninitialized() });
-
-        for (dst, src) in res.iter_mut().zip(self.iter()) {
-            unsafe {
-                ptr::write(dst, f(ptr::read(src)));
-            }
-        }
-
-        mem::forget(self);
-
-        NumericArray(res.into_inner())
-    }
-
-    /// Combines two same-length arrays and maps both values to a new array using the given function.
-    pub fn zip<V, U, F>(&self, rhs: &NumericArray<V, N>, f: F) -> NumericArray<U, N>
-    where
-        N: ArrayLength<V> + ArrayLength<U>,
-        F: Fn(&T, &V) -> U,
-    {
-        let mut res: NoDrop<GenericArray<U, N>> = NoDrop::new(unsafe { mem::uninitialized() });
-
-        for (dst, (lhs, rhs)) in res.iter_mut().zip(self.iter().zip(rhs.iter())) {
-            unsafe {
-                ptr::write(dst, f(lhs, rhs));
-            }
-        }
-
-        NumericArray(res.into_inner())
-    }
-
-    /// Same as `zip`, but `self` values are moved. The `rhs` array is still accessed by reference.
-    pub fn zip_move<V, U, F>(self, rhs: &NumericArray<V, N>, f: F) -> NumericArray<U, N>
-    where
-        N: ArrayLength<V> + ArrayLength<U>,
-        F: Fn(T, &V) -> U,
-    {
-        let mut res: NoDrop<GenericArray<U, N>> = NoDrop::new(unsafe { mem::uninitialized() });
-
-        for (dst, (lhs, rhs)) in res.iter_mut().zip(self.iter().zip(rhs.iter())) {
-            unsafe {
-                ptr::write(dst, f(ptr::read(lhs), rhs));
-            }
-        }
-
-        mem::forget(self);
-
-        NumericArray(res.into_inner())
-    }
-
-    /// Like `zip` and `zip_move`, but moves both `self` and the `rhs` array.
-    pub fn zip_move_both<V, U, F>(self, rhs: NumericArray<V, N>, f: F) -> NumericArray<U, N>
-    where
-        N: ArrayLength<V> + ArrayLength<U>,
-        F: Fn(T, V) -> U,
-    {
-        let mut res: NoDrop<GenericArray<U, N>> = NoDrop::new(unsafe { mem::uninitialized() });
-
-        for (dst, (lhs, rhs)) in res.iter_mut().zip(self.iter().zip(rhs.iter())) {
-            unsafe {
-                ptr::write(dst, f(ptr::read(lhs), ptr::read(rhs)));
-            }
-        }
-
-        mem::forget(self);
-        mem::forget(rhs);
-
-        NumericArray(res.into_inner())
-    }
-
-    /// Convert one `NumericArray` to another using `From` for each element.
-    pub fn convert<U>(self) -> NumericArray<U, N>
-    where
-        N: ArrayLength<U>,
-        U: From<T>,
-    {
-        self.map_move(From::from)
+        NumericArray(ManuallyDrop::into_inner(longer))
     }
 }
 
@@ -594,12 +508,24 @@ impl<T, N: ArrayLength<T>> IntoIterator for NumericArray<T, N> {
     }
 }
 
+impl<T, N: ArrayLength<T>> FromIterator<T> for NumericArray<T, N>
+where
+    T: Default,
+{
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+    {
+        NumericArray(GenericArray::from_iter(iter))
+    }
+}
+
 impl<T, N: ArrayLength<T>> Default for NumericArray<T, N>
 where
     T: Default,
 {
     fn default() -> Self {
-        Self::generate(|| Default::default())
+        NumericArray(GenericArray::default())
     }
 }
 
@@ -608,7 +534,7 @@ where
     T: num_traits::Zero,
 {
     fn zero() -> Self {
-        Self::generate(|| <T as num_traits::Zero>::zero())
+        NumericArray(GenericArray::generate(|_| <T as num_traits::Zero>::zero()))
     }
 
     fn is_zero(&self) -> bool {
@@ -621,7 +547,7 @@ where
     T: num_traits::One,
 {
     fn one() -> Self {
-        Self::generate(|| <T as num_traits::One>::one())
+        NumericArray(GenericArray::generate(|_| <T as num_traits::One>::one()))
     }
 }
 
@@ -636,7 +562,7 @@ macro_rules! impl_unary_ops {
                 type Output = NumericArray<<T as ::std::ops::$op_trait>::Output, N>;
 
                 fn $op(self) -> Self::Output {
-                    self.map_move(::std::ops::$op_trait::$op)
+                    NumericArray(self.0.map(::std::ops::$op_trait::$op))
                 }
             }
         )*
@@ -654,7 +580,7 @@ macro_rules! impl_binary_ops {
                 type Output = NumericArray<<T as ::std::ops::$op_trait<U>>::Output, N>;
 
                 fn $op(self, rhs: NumericArray<U, N>) -> Self::Output {
-                    self.zip_move_both(rhs, ::std::ops::$op_trait::$op)
+                    NumericArray(self.0.zip(rhs.0, ::std::ops::$op_trait::$op))
                 }
             }
 
@@ -666,7 +592,7 @@ macro_rules! impl_binary_ops {
                 type Output = NumericArray<<T as ::std::ops::$op_trait<U>>::Output, N>;
 
                 fn $op(self, rhs: NumericConstant<U>) -> Self::Output {
-                    self.map_move(|l| ::std::ops::$op_trait::$op(l, rhs.0.clone()))
+                    NumericArray(self.0.map(|l| ::std::ops::$op_trait::$op(l, rhs.0.clone())))
                 }
             }
         )*
@@ -711,7 +637,7 @@ macro_rules! impl_wrapping_ops {
                 T: num_traits::$op_trait
             {
                 fn $op(&self, rhs: &Self) -> Self {
-                    self.zip(rhs, num_traits::$op_trait::$op)
+                    NumericArray(self.0.zip_ref(&rhs.0, num_traits::$op_trait::$op))
                 }
             }
         )*
@@ -726,7 +652,8 @@ macro_rules! impl_checked_ops {
                 T: num_traits::$op_trait
             {
                 fn $op(&self, rhs: &Self) -> Option<Self> {
-                    let mut res: NoDrop<GenericArray<T, N>> = NoDrop::new(unsafe { mem::uninitialized() });
+                    let mut res: ManuallyDrop<GenericArray<T, N>> =
+                        ManuallyDrop::new(unsafe { mem::uninitialized() });
 
                     for (dst, (lhs, rhs)) in res.iter_mut().zip(self.iter().zip(rhs.iter())) {
                         if let Some(value) = num_traits::$op_trait::$op(lhs, rhs) {
@@ -738,7 +665,7 @@ macro_rules! impl_checked_ops {
                         }
                     }
 
-                    Some(NumericArray(res.into_inner()))
+                    Some(NumericArray(ManuallyDrop::into_inner(res)))
                 }
             }
         )*
@@ -778,11 +705,11 @@ where
     T: num_traits::Saturating,
 {
     fn saturating_add(self, rhs: Self) -> Self {
-        self.zip_move_both(rhs, num_traits::Saturating::saturating_add)
+        NumericArray(self.0.zip(rhs.0, num_traits::Saturating::saturating_add))
     }
 
     fn saturating_sub(self, rhs: Self) -> Self {
-        self.zip_move_both(rhs, num_traits::Saturating::saturating_sub)
+        NumericArray(self.0.zip(rhs.0, num_traits::Saturating::saturating_sub))
     }
 }
 
@@ -815,15 +742,15 @@ where
     T: num_traits::Signed,
 {
     fn abs(&self) -> Self {
-        self.map(num_traits::Signed::abs)
+        NumericArray(self.0.map_ref(num_traits::Signed::abs))
     }
 
     fn abs_sub(&self, rhs: &Self) -> Self {
-        self.zip(rhs, num_traits::Signed::abs_sub)
+        NumericArray(self.0.zip_ref(&rhs.0, num_traits::Signed::abs_sub))
     }
 
     fn signum(&self) -> Self {
-        self.map(num_traits::Signed::signum)
+        NumericArray(self.0.map_ref(num_traits::Signed::signum))
     }
 
     fn is_positive(&self) -> bool {
@@ -849,7 +776,7 @@ macro_rules! impl_float_const {
         {
             $(
                 fn $f() -> Self {
-                    Self::generate(|| <T as num_traits::FloatConst>::$f())
+                    NumericArray(GenericArray::generate(|_| <T as num_traits::FloatConst>::$f()))
                 }
             )*
         }
@@ -880,11 +807,15 @@ where
     T: num_traits::Bounded,
 {
     fn min_value() -> Self {
-        Self::generate(|| <T as num_traits::Bounded>::min_value())
+        NumericArray(GenericArray::generate(
+            |_| <T as num_traits::Bounded>::min_value(),
+        ))
     }
 
     fn max_value() -> Self {
-        Self::generate(|| <T as num_traits::Bounded>::max_value())
+        NumericArray(GenericArray::generate(
+            |_| <T as num_traits::Bounded>::max_value(),
+        ))
     }
 }
 
@@ -937,5 +868,16 @@ mod test {
         let c = a + b * nconstant!(2);
 
         assert_eq!(c, narr![i32; 5, 11, 17, 23]);
+    }
+
+    #[test]
+    fn iter() {
+        use typenum::consts::U6;
+
+        let t = [1, 2, 3, 4];
+
+        let a = NumericArray::<i32, U6>::from_iter(t.iter().cloned());
+
+        assert_eq!(a, narr![i32; 1, 2, 3, 4, 0, 0]);
     }
 }
