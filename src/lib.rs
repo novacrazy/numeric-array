@@ -299,6 +299,18 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
         self.0
     }
 
+    /// Get reference to underlying `GenericArray` instance.
+    #[inline]
+    pub fn as_array(&self) -> &GenericArray<T, N> {
+        &self.0
+    }
+
+    /// Get mutable reference to underlying `GenericArray` instance.
+    #[inline]
+    pub fn as_mut_array(&mut self) -> &mut GenericArray<T, N> {
+        &mut self.0
+    }
+
     /// Creates a new array filled with a single value.
     ///
     /// Example:
