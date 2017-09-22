@@ -70,7 +70,7 @@ use generic_array::{ArrayLength, GenericArray, GenericArrayIter};
 /// This is useful for situations where the element type and length can be variable,
 /// but you need a generic type bound and don't want to deal with
 /// `T` and `N: ArrayLength<T>` from `NumericArray<T, N>` directly.
-pub trait NumericSequence<T> {
+pub trait NumericSequence<T>: Sized {
     /// Array length type
     type Length: ArrayLength<T>;
 }
@@ -82,7 +82,7 @@ pub trait NumericSequence<T> {
 /// by removing the last element.
 pub trait Lengthen<T>: NumericSequence<T> {
     /// `NumericSequence` that has one more element than `Self`
-    type Longer: Shorten<T>;
+    type Longer: Shorten<T, Shorter=Self>;
 
     /// Moves all the current elements into a new array with one more element than the current one.
     ///
@@ -104,7 +104,7 @@ pub trait Lengthen<T>: NumericSequence<T> {
 /// Additionally, any shortened sequence can be lengthened by adding an element to the end of it.
 pub trait Shorten<T>: NumericSequence<T> {
     /// `NumericSequence` that has one less element than `Self`
-    type Shorter: Lengthen<T>;
+    type Shorter: Lengthen<T, Longer=Self>;
 
     /// Moves all but the last element into a `NumericArray` with one
     /// less element than the current one.
