@@ -41,7 +41,7 @@
 //! operations are required for arrays.
 //!
 
-//#![deny(missing_docs)]
+#![deny(missing_docs)]
 
 extern crate num_traits;
 extern crate typenum;
@@ -75,6 +75,51 @@ pub trait NumericSequence<T> {
     type Length: ArrayLength<T>;
 }
 
+/// Defines a `NumericSequence` which can be lengthened or extended by appending an
+/// element to the end of it.
+///
+/// Additionally, any lengthened sequence can be shortened
+/// by removing the last element.
+pub trait Lengthen<T>: NumericSequence<T> {
+    /// `NumericSequence` that has one more element than `Self`
+    type Longer: Shorten<T>;
+
+    /// Moves all the current elements into a new array with one more element than the current one.
+    ///
+    /// The last element of the new array is set to `last`
+    ///
+    /// Example:
+    ///
+    /// ```ignore
+    /// let a = NumericArray::new(arr![i32; 1, 2, 3, 4]);
+    /// let b = NumericArray::new(arr![i32; 1, 2, 3]);
+    ///
+    /// assert_eq!(a, b.lengthen(4));
+    /// ```
+    fn lengthen(self, last: T) -> Self::Longer;
+}
+
+/// Defines a `NumericSequence` which can be shortened by removing the last element in it.
+///
+/// Additionally, any shortened sequence can be lengthened by adding an element to the end of it.
+pub trait Shorten<T>: NumericSequence<T> {
+    /// `NumericSequence` that has one less element than `Self`
+    type Shorter: Lengthen<T>;
+
+    /// Moves all but the last element into a `NumericArray` with one
+    /// less element than the current one.
+    ///
+    /// Example:
+    ///
+    /// ```ignore
+    /// let a = NumericArray::new(arr![i32; 1, 2, 3, 4]);
+    /// let b = NumericArray::new(arr![i32; 1, 2, 3]);
+    ///
+    /// assert_eq!(a.shorten().0, b);
+    /// ```
+    fn shorten(self) -> (Self::Shorter, T);
+}
+
 /// A numeric wrapper for a `GenericArray`, allowing for easy numerical operations
 /// on the whole sequence.
 ///
@@ -85,10 +130,6 @@ pub trait NumericSequence<T> {
 /// in a single SIMD instruction for all elements at once.
 #[repr(C)]
 pub struct NumericArray<T, N: ArrayLength<T>>(GenericArray<T, N>);
-
-impl<T, N: ArrayLength<T>> NumericSequence<T> for NumericArray<T, N> {
-    type Length = N;
-}
 
 /// Sugar for `NumericArray::new(arr![...])`
 ///
@@ -102,6 +143,79 @@ impl<T, N: ArrayLength<T>> NumericSequence<T> for NumericArray<T, N> {
 macro_rules! narr {
     ($($t:tt)*) => {
         $crate::NumericArray::new(arr!($($t)*))
+    }
+}
+
+impl<T, N: ArrayLength<T>> NumericSequence<T> for NumericArray<T, N> {
+    type Length = N;
+}
+
+impl<T, N: ArrayLength<T>> Lengthen<T> for NumericArray<T, N>
+where
+    N: Add<B1>,
+    Add1<N>: ArrayLength<T>,
+    Add1<N>: Sub<B1, Output=N>,
+    Sub1<Add1<N>>: ArrayLength<T>
+{
+    type Longer = NumericArray<T, Add1<N>>;
+
+    fn lengthen(self, last: T) -> Self::Longer {
+        // Safety reasoning:
+        //
+        // This function is safe because it only moves data into another array. There is
+        // no point in which an element could be dropped or cause a panic.
+        let mut longer: ManuallyDrop<GenericArray<T, Add1<N>>> =
+            ManuallyDrop::new(unsafe { mem::uninitialized() });
+
+        for (dst, src) in longer.iter_mut().zip(self.iter()) {
+            unsafe {
+                ptr::write(dst, ptr::read(src));
+            }
+        }
+
+        unsafe {
+            ptr::write(&mut longer[N::to_usize()], last);
+        }
+
+        mem::forget(self);
+
+        NumericArray(ManuallyDrop::into_inner(longer))
+    }
+}
+
+impl<T, N: ArrayLength<T>> Shorten<T> for NumericArray<T, N>
+where
+    N: Sub<B1>,
+    Sub1<N>: ArrayLength<T>,
+    Sub1<N>: Add<B1, Output=N>,
+    Add1<Sub1<N>>: ArrayLength<T>,
+{
+    type Shorter = NumericArray<T, Sub1<N>>;
+
+    fn shorten(self) -> (Self::Shorter, T) {
+        // Safety reasoning:
+        //
+        // This function is safe because data is simply moved around, and the last
+        // element is dropped after everything else has been moved.
+        let mut shorter: ManuallyDrop<GenericArray<T, Sub1<N>>> =
+            ManuallyDrop::new(unsafe { mem::uninitialized() });
+
+        for (dst, src) in shorter.iter_mut().zip(self.iter()) {
+            unsafe {
+                ptr::write(dst, ptr::read(src));
+            }
+        }
+
+        // Move out last element
+        let last = unsafe { ptr::read(&self.0[N::to_usize() - 1]) };
+
+        // Forget all moved elements before the last one is dropped
+        mem::forget(self);
+
+        // Take result out of ManuallyDrop before the last element is dropped
+        let array = ManuallyDrop::into_inner(shorter);
+
+        (NumericArray(array), last)
     }
 }
 
@@ -162,13 +276,13 @@ impl<T, N: ArrayLength<T>> Deref for NumericArray<T, N> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.as_slice()
     }
 }
 
 impl<T, N: ArrayLength<T>> DerefMut for NumericArray<T, N> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        self.as_mut_slice()
     }
 }
 
@@ -311,6 +425,18 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
         &mut self.0
     }
 
+    /// Extracts a slice containing the entire array.
+    #[inline]
+    pub fn as_slice(&self) -> &[T] {
+        &self.0
+    }
+
+    /// Extracts a mutable slice containing the entire array.
+    #[inline]
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        &mut self.0
+    }
+
     /// Creates a new array filled with a single value.
     ///
     /// Example:
@@ -327,91 +453,6 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
         T: Clone,
     {
         NumericArray(GenericArray::generate(|_| t.clone()))
-    }
-
-    /// Moves all but the last element into a `NumericArray` with one
-    /// less element than the current one.
-    ///
-    /// The last element is dropped.
-    ///
-    /// Example:
-    ///
-    /// ```ignore
-    /// let a = NumericArray::new(arr![i32; 1, 2, 3, 4]);
-    /// let b = NumericArray::new(arr![i32; 1, 2, 3]);
-    ///
-    /// assert_eq!(a.shorten(), b);
-    /// ```
-    pub fn shorten(self) -> NumericArray<T, Sub1<N>>
-    where
-        N: Sub<B1>,
-        Sub1<N>: ArrayLength<T>,
-    {
-        // Safety reasoning:
-        //
-        // This function is safe because data is simply moved around, and the last
-        // element is dropped after everything else has been moved.
-        let mut shorter: ManuallyDrop<GenericArray<T, Sub1<N>>> =
-            ManuallyDrop::new(unsafe { mem::uninitialized() });
-
-        for (dst, src) in shorter.iter_mut().zip(self.iter()) {
-            unsafe {
-                ptr::write(dst, ptr::read(src));
-            }
-        }
-
-        // Move out last element
-        let last = unsafe { ptr::read(&self.0[N::to_usize() - 1]) };
-
-        // Forget all moved elements before the last one is dropped
-        mem::forget(self);
-
-        // Take result out of ManuallyDrop before the last element is dropped
-        let array = ManuallyDrop::into_inner(shorter);
-
-        // Drop last element now, so in case it panics then everything else will drop safely.
-        mem::drop(last);
-
-        NumericArray(array)
-    }
-
-    /// Moves all the current elements into a new array with one more element than the current one.
-    ///
-    /// The last element of the new array is set to `last`
-    ///
-    /// Example:
-    ///
-    /// ```ignore
-    /// let a = NumericArray::new(arr![i32; 1, 2, 3, 4]);
-    /// let b = NumericArray::new(arr![i32; 1, 2, 3]);
-    ///
-    /// assert_eq!(a, b.lengthen(4));
-    /// ```
-    pub fn lengthen(self, last: T) -> NumericArray<T, Add1<N>>
-    where
-        N: Add<B1>,
-        Add1<N>: ArrayLength<T>,
-    {
-        // Safety reasoning:
-        //
-        // This function is safe because it only moves data into another array. There is
-        // no point in which an element could be dropped or cause a panic.
-        let mut longer: ManuallyDrop<GenericArray<T, Add1<N>>> =
-            ManuallyDrop::new(unsafe { mem::uninitialized() });
-
-        for (dst, src) in longer.iter_mut().zip(self.iter()) {
-            unsafe {
-                ptr::write(dst, ptr::read(src));
-            }
-        }
-
-        unsafe {
-            ptr::write(&mut longer[N::to_usize()], last);
-        }
-
-        mem::forget(self);
-
-        NumericArray(ManuallyDrop::into_inner(longer))
     }
 }
 
@@ -846,30 +887,30 @@ mod test {
 
     #[test]
     fn shorten() {
-        let a = NumericArray::new(arr![i32; 1, 2, 3, 4]);
-        let b = NumericArray::new(arr![i32; 1, 2, 3]);
+        let a = narr![i32; 1, 2, 3, 4];
+        let b = narr![i32; 1, 2, 3];
 
-        assert_eq!(a.shorten(), b);
+        assert_eq!(a.shorten().0, b);
     }
 
     #[test]
     fn lengthen() {
-        let a = NumericArray::new(arr![i32; 1, 2, 3, 4]);
-        let b = NumericArray::new(arr![i32; 1, 2, 3]);
+        let a = narr![i32; 1, 2, 3, 4];
+        let b = narr![i32; 1, 2, 3];
 
         assert_eq!(a, b.lengthen(4));
     }
 
     #[test]
     fn ops() {
-        let a = black_box(NumericArray::new(arr![i32; 1, 3, 5, 7]));
-        let b = black_box(NumericArray::new(arr![i32; 2, 4, 6, 8]));
+        let a = black_box(narr![i32; 1, 3, 5, 7]);
+        let b = black_box(narr![i32; 2, 4, 6, 8]);
 
         let c = a + b;
         let d = c * nconstant!(black_box(5));
         let e = d << nconstant!(1_usize);
 
-        assert_eq!(e, NumericArray::new(arr![i32; 30, 70, 110, 150]))
+        assert_eq!(e, narr![i32; 30, 70, 110, 150])
     }
 
     #[test]
@@ -891,5 +932,15 @@ mod test {
         let a = NumericArray::<i32, U6>::from_iter(t.iter().cloned());
 
         assert_eq!(a, narr![i32; 1, 2, 3, 4, 0, 0]);
+    }
+
+    #[test]
+    fn floats() {
+        let a = black_box(narr![f32; 1.0, 3.0, 5.0, 7.0]);
+        let b = black_box(narr![f32; 2.0, 4.0, 6.0, 8.0]);
+
+        let c = a + b;
+
+        black_box(c);
     }
 }
