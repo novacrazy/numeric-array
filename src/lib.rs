@@ -44,6 +44,8 @@
 #![deny(missing_docs)]
 
 extern crate num_traits;
+
+#[cfg(test)]
 extern crate typenum;
 
 #[cfg_attr(test, macro_use)]
@@ -56,69 +58,14 @@ use std::mem::ManuallyDrop;
 use std::borrow::{Borrow, BorrowMut};
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
-use std::ops::{Add, Sub};
 
 use std::iter::FromIterator;
 
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 
-use typenum::*;
 use generic_array::{ArrayLength, GenericArray, GenericArrayIter};
-
-/// Defines any `NumericArray` type as its element and length types
-///
-/// This is useful for situations where the element type and length can be variable,
-/// but you need a generic type bound and don't want to deal with
-/// `T` and `N: ArrayLength<T>` from `NumericArray<T, N>` directly.
-pub trait NumericSequence<T>: Sized {
-    /// Array length type
-    type Length: ArrayLength<T>;
-}
-
-/// Defines a `NumericSequence` which can be lengthened or extended by appending an
-/// element to the end of it.
-///
-/// Additionally, any lengthened sequence can be shortened
-/// by removing the last element.
-pub trait Lengthen<T>: NumericSequence<T> {
-    /// `NumericSequence` that has one more element than `Self`
-    type Longer: Shorten<T, Shorter=Self>;
-
-    /// Moves all the current elements into a new array with one more element than the current one.
-    ///
-    /// The last element of the new array is set to `last`
-    ///
-    /// Example:
-    ///
-    /// ```ignore
-    /// let a = NumericArray::new(arr![i32; 1, 2, 3, 4]);
-    /// let b = NumericArray::new(arr![i32; 1, 2, 3]);
-    ///
-    /// assert_eq!(a, b.lengthen(4));
-    /// ```
-    fn lengthen(self, last: T) -> Self::Longer;
-}
-
-/// Defines a `NumericSequence` which can be shortened by removing the last element in it.
-///
-/// Additionally, any shortened sequence can be lengthened by adding an element to the end of it.
-pub trait Shorten<T>: NumericSequence<T> {
-    /// `NumericSequence` that has one less element than `Self`
-    type Shorter: Lengthen<T, Longer=Self>;
-
-    /// Moves all but the last element into a `NumericArray` with one
-    /// less element than the current one.
-    ///
-    /// Example:
-    ///
-    /// ```ignore
-    /// let a = NumericArray::new(arr![i32; 1, 2, 3, 4]);
-    /// let b = NumericArray::new(arr![i32; 1, 2, 3]);
-    ///
-    /// assert_eq!(a.shorten().0, b);
-    /// ```
-    fn shorten(self) -> (Self::Shorter, T);
-}
+use generic_array::sequence::*;
+use generic_array::functional::*;
 
 /// A numeric wrapper for a `GenericArray`, allowing for easy numerical operations
 /// on the whole sequence.
@@ -146,76 +93,15 @@ macro_rules! narr {
     }
 }
 
-impl<T, N: ArrayLength<T>> NumericSequence<T> for NumericArray<T, N> {
+unsafe impl<T, N: ArrayLength<T>> GenericSequence<T> for NumericArray<T, N> {
     type Length = N;
-}
+    type Sequence = Self;
 
-impl<T, N: ArrayLength<T>> Lengthen<T> for NumericArray<T, N>
-where
-    N: Add<B1>,
-    Add1<N>: ArrayLength<T>,
-    Add1<N>: Sub<B1, Output=N>,
-    Sub1<Add1<N>>: ArrayLength<T>
-{
-    type Longer = NumericArray<T, Add1<N>>;
-
-    fn lengthen(self, last: T) -> Self::Longer {
-        // Safety reasoning:
-        //
-        // This function is safe because it only moves data into another array. There is
-        // no point in which an element could be dropped or cause a panic.
-        let mut longer: ManuallyDrop<GenericArray<T, Add1<N>>> =
-            ManuallyDrop::new(unsafe { mem::uninitialized() });
-
-        for (dst, src) in longer.iter_mut().zip(self.iter()) {
-            unsafe {
-                ptr::write(dst, ptr::read(src));
-            }
-        }
-
-        unsafe {
-            ptr::write(&mut longer[N::to_usize()], last);
-        }
-
-        mem::forget(self);
-
-        NumericArray(ManuallyDrop::into_inner(longer))
-    }
-}
-
-impl<T, N: ArrayLength<T>> Shorten<T> for NumericArray<T, N>
-where
-    N: Sub<B1>,
-    Sub1<N>: ArrayLength<T>,
-    Sub1<N>: Add<B1, Output=N>,
-    Add1<Sub1<N>>: ArrayLength<T>,
-{
-    type Shorter = NumericArray<T, Sub1<N>>;
-
-    fn shorten(self) -> (Self::Shorter, T) {
-        // Safety reasoning:
-        //
-        // This function is safe because data is simply moved around, and the last
-        // element is dropped after everything else has been moved.
-        let mut shorter: ManuallyDrop<GenericArray<T, Sub1<N>>> =
-            ManuallyDrop::new(unsafe { mem::uninitialized() });
-
-        for (dst, src) in shorter.iter_mut().zip(self.iter()) {
-            unsafe {
-                ptr::write(dst, ptr::read(src));
-            }
-        }
-
-        // Move out last element
-        let last = unsafe { ptr::read(&self.0[N::to_usize() - 1]) };
-
-        // Forget all moved elements before the last one is dropped
-        mem::forget(self);
-
-        // Take result out of ManuallyDrop before the last element is dropped
-        let array = ManuallyDrop::into_inner(shorter);
-
-        (NumericArray(array), last)
+    fn generate<F>(f: F) -> Self
+    where
+        F: FnMut(usize) -> T
+    {
+        NumericArray(GenericArray::generate(f))
     }
 }
 
@@ -561,10 +447,7 @@ impl<T, N: ArrayLength<T>> IntoIterator for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> FromIterator<T> for NumericArray<T, N>
-where
-    T: Default,
-{
+impl<T, N: ArrayLength<T>> FromIterator<T> for NumericArray<T, N> {
     fn from_iter<I>(iter: I) -> Self
     where
         I: IntoIterator<Item = T>,
@@ -690,7 +573,7 @@ macro_rules! impl_wrapping_ops {
                 T: num_traits::$op_trait
             {
                 fn $op(&self, rhs: &Self) -> Self {
-                    NumericArray(self.0.zip_ref(&rhs.0, num_traits::$op_trait::$op))
+                    NumericArray((&self.0).zip(&rhs.0, num_traits::$op_trait::$op))
                 }
             }
         )*
@@ -795,15 +678,15 @@ where
     T: num_traits::Signed,
 {
     fn abs(&self) -> Self {
-        NumericArray(self.0.map_ref(num_traits::Signed::abs))
+        NumericArray((&self.0).map(num_traits::Signed::abs))
     }
 
     fn abs_sub(&self, rhs: &Self) -> Self {
-        NumericArray(self.0.zip_ref(&rhs.0, num_traits::Signed::abs_sub))
+        NumericArray((&self.0).zip(&rhs.0, num_traits::Signed::abs_sub))
     }
 
     fn signum(&self) -> Self {
-        NumericArray(self.0.map_ref(num_traits::Signed::signum))
+        NumericArray((&self.0).map(num_traits::Signed::signum))
     }
 
     fn is_positive(&self) -> bool {
@@ -886,22 +769,6 @@ mod test {
     }
 
     #[test]
-    fn shorten() {
-        let a = narr![i32; 1, 2, 3, 4];
-        let b = narr![i32; 1, 2, 3];
-
-        assert_eq!(a.shorten().0, b);
-    }
-
-    #[test]
-    fn lengthen() {
-        let a = narr![i32; 1, 2, 3, 4];
-        let b = narr![i32; 1, 2, 3];
-
-        assert_eq!(a, b.lengthen(4));
-    }
-
-    #[test]
     fn ops() {
         let a = black_box(narr![i32; 1, 3, 5, 7]);
         let b = black_box(narr![i32; 2, 4, 6, 8]);
@@ -921,17 +788,6 @@ mod test {
         let c = a + b * nconstant!(2);
 
         assert_eq!(c, narr![i32; 5, 11, 17, 23]);
-    }
-
-    #[test]
-    fn iter() {
-        use typenum::consts::U6;
-
-        let t = [1, 2, 3, 4];
-
-        let a = NumericArray::<i32, U6>::from_iter(t.iter().cloned());
-
-        assert_eq!(a, narr![i32; 1, 2, 3, 4, 0, 0]);
     }
 
     #[test]
