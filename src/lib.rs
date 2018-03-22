@@ -65,7 +65,6 @@ use std::fmt::{Debug, Formatter, Result as FmtResult};
 
 use generic_array::{ArrayLength, GenericArray, GenericArrayIter};
 use generic_array::sequence::*;
-use generic_array::functional::*;
 
 /// A numeric wrapper for a `GenericArray`, allowing for easy numerical operations
 /// on the whole sequence.
@@ -465,40 +464,18 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> num_traits::Zero for NumericArray<T, N>
-where
-    T: num_traits::Zero,
-{
-    fn zero() -> Self {
-        NumericArray(GenericArray::generate(|_| <T as num_traits::Zero>::zero()))
-    }
-
-    fn is_zero(&self) -> bool {
-        self.iter().all(|x| x.is_zero())
-    }
-}
-
-impl<T, N: ArrayLength<T>> num_traits::One for NumericArray<T, N>
-where
-    T: num_traits::One,
-{
-    fn one() -> Self {
-        NumericArray(GenericArray::generate(|_| <T as num_traits::One>::one()))
-    }
-}
-
 macro_rules! impl_unary_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
-            impl<T, N: ArrayLength<T>> ::std::ops::$op_trait for NumericArray<T, N>
+            impl<T, N: ArrayLength<T>> $op_trait for NumericArray<T, N>
             where
-                T: ::std::ops::$op_trait,
-                N: ArrayLength<<T as ::std::ops::$op_trait>::Output>
+                T: $op_trait,
+                N: ArrayLength<<T as $op_trait>::Output>
             {
-                type Output = NumericArray<<T as ::std::ops::$op_trait>::Output, N>;
+                type Output = NumericArray<<T as $op_trait>::Output, N>;
 
                 fn $op(self) -> Self::Output {
-                    NumericArray(self.0.map(::std::ops::$op_trait::$op))
+                    NumericArray(self.0.map($op_trait::$op))
                 }
             }
         )*
@@ -508,27 +485,27 @@ macro_rules! impl_unary_ops {
 macro_rules! impl_binary_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
-            impl<T, U, N: ArrayLength<T> + ArrayLength<U>> ::std::ops::$op_trait<NumericArray<U, N>> for NumericArray<T, N>
+            impl<T, U, N: ArrayLength<T> + ArrayLength<U>> $op_trait<NumericArray<U, N>> for NumericArray<T, N>
             where
-                T: ::std::ops::$op_trait<U>,
-                N: ArrayLength<<T as ::std::ops::$op_trait<U>>::Output>
+                T: $op_trait<U>,
+                N: ArrayLength<<T as $op_trait<U>>::Output>
             {
-                type Output = NumericArray<<T as ::std::ops::$op_trait<U>>::Output, N>;
+                type Output = NumericArray<<T as $op_trait<U>>::Output, N>;
 
                 fn $op(self, rhs: NumericArray<U, N>) -> Self::Output {
-                    NumericArray(self.0.zip(rhs.0, ::std::ops::$op_trait::$op))
+                    NumericArray(self.0.zip(rhs.0, $op_trait::$op))
                 }
             }
 
-            impl<T, U: Clone, N: ArrayLength<T>> ::std::ops::$op_trait<NumericConstant<U>> for NumericArray<T, N>
+            impl<T, U: Clone, N: ArrayLength<T>> $op_trait<NumericConstant<U>> for NumericArray<T, N>
             where
-                T: ::std::ops::$op_trait<U>,
-                N: ArrayLength<<T as ::std::ops::$op_trait<U>>::Output>
+                T: $op_trait<U>,
+                N: ArrayLength<<T as $op_trait<U>>::Output>
             {
-                type Output = NumericArray<<T as ::std::ops::$op_trait<U>>::Output, N>;
+                type Output = NumericArray<<T as $op_trait<U>>::Output, N>;
 
                 fn $op(self, rhs: NumericConstant<U>) -> Self::Output {
-                    NumericArray(self.0.map(|l| ::std::ops::$op_trait::$op(l, rhs.0.clone())))
+                    NumericArray(self.0.map(|l| $op_trait::$op(l, rhs.0.clone())))
                 }
             }
         )*
@@ -538,26 +515,26 @@ macro_rules! impl_binary_ops {
 macro_rules! impl_assign_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
-            impl<T, U, N: ArrayLength<T> + ArrayLength<U>> ::std::ops::$op_trait<NumericArray<U, N>> for NumericArray<T, N>
+            impl<T, U, N: ArrayLength<T> + ArrayLength<U>> $op_trait<NumericArray<U, N>> for NumericArray<T, N>
             where
-                T: ::std::ops::$op_trait<U>
+                T: $op_trait<U>
             {
                 fn $op(&mut self, rhs: NumericArray<U, N>) {
                     for (lhs, rhs) in self.iter_mut().zip(rhs.iter()) {
-                        ::std::ops::$op_trait::$op(lhs, unsafe { ptr::read(rhs) });
+                        $op_trait::$op(lhs, unsafe { ptr::read(rhs) });
                     }
 
                     mem::forget(rhs);
                 }
             }
 
-            impl<T, U: Clone, N: ArrayLength<T>> ::std::ops::$op_trait<NumericConstant<U>> for NumericArray<T, N>
+            impl<T, U: Clone, N: ArrayLength<T>> $op_trait<NumericConstant<U>> for NumericArray<T, N>
             where
-                T: ::std::ops::$op_trait<U>
+                T: $op_trait<U>
             {
                 fn $op(&mut self, rhs: NumericConstant<U>) {
                     for lhs in self.iter_mut() {
-                        ::std::ops::$op_trait::$op(lhs, rhs.0.clone());
+                        $op_trait::$op(lhs, rhs.0.clone());
                     }
                 }
             }
@@ -580,178 +557,297 @@ macro_rules! impl_wrapping_ops {
     }
 }
 
+// Just copied from `generic-array` internals
+struct ArrayBuilder<T, N: ArrayLength<T>> {
+    array: ManuallyDrop<GenericArray<T, N>>,
+    position: usize,
+}
+
+impl<T, N: ArrayLength<T>> ArrayBuilder<T, N> {
+    fn new() -> ArrayBuilder<T, N> {
+        ArrayBuilder {
+            array: ManuallyDrop::new(unsafe { mem::uninitialized() }),
+            position: 0,
+        }
+    }
+
+    fn into_inner(self) -> GenericArray<T, N> {
+        let array = unsafe { ptr::read(&self.array) };
+
+        mem::forget(self);
+
+        ManuallyDrop::into_inner(array)
+    }
+}
+
+impl<T, N: ArrayLength<T>> Drop for ArrayBuilder<T, N> {
+    fn drop(&mut self) {
+        for value in self.array.iter_mut().take(self.position) {
+            unsafe {
+                ptr::drop_in_place(value);
+            }
+        }
+    }
+}
+
 macro_rules! impl_checked_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
-            impl<T, N: ArrayLength<T>> num_traits::$op_trait for NumericArray<T, N>
+            impl<T, N: ArrayLength<T>> $op_trait for NumericArray<T, N>
             where
-                T: num_traits::$op_trait
+                T: $op_trait
             {
                 fn $op(&self, rhs: &Self) -> Option<Self> {
-                    let mut res: ManuallyDrop<GenericArray<T, N>> =
-                        ManuallyDrop::new(unsafe { mem::uninitialized() });
+                    let mut builder = ArrayBuilder::new();
 
-                    for (dst, (lhs, rhs)) in res.iter_mut().zip(self.iter().zip(rhs.iter())) {
-                        if let Some(value) = num_traits::$op_trait::$op(lhs, rhs) {
+                    for (dst, (lhs, rhs)) in builder.array.iter_mut().zip(self.iter().zip(rhs.iter())) {
+                        if let Some(value) = $op_trait::$op(lhs, rhs) {
                             unsafe {
                                 ptr::write(dst, value);
                             }
+
+                            builder.position += 1;
                         } else {
                             return None;
                         }
                     }
 
-                    Some(NumericArray(ManuallyDrop::into_inner(res)))
+                    Some(NumericArray(builder.into_inner()))
                 }
             }
         )*
     }
 }
 
-impl_unary_ops!(Neg::neg, Not::not);
-
-impl_binary_ops! {
-    Add::add,
-    Sub::sub,
-    Mul::mul,
-    Div::div,
-    Rem::rem,
-    BitAnd::bitand,
-    BitOr::bitor,
-    BitXor::bitxor,
-    Shr::shr,
-    Shl::shl
-}
-
-impl_assign_ops! {
-    AddAssign::add_assign,
-    SubAssign::sub_assign,
-    MulAssign::mul_assign,
-    DivAssign::div_assign,
-    RemAssign::rem_assign,
-    BitAndAssign::bitand_assign,
-    BitOrAssign::bitor_assign,
-    BitXorAssign::bitxor_assign,
-    ShrAssign::shr_assign,
-    ShlAssign::shl_assign
-}
-
-impl<T, N: ArrayLength<T>> num_traits::Saturating for NumericArray<T, N>
-where
-    T: num_traits::Saturating,
-{
-    fn saturating_add(self, rhs: Self) -> Self {
-        NumericArray(self.0.zip(rhs.0, num_traits::Saturating::saturating_add))
-    }
-
-    fn saturating_sub(self, rhs: Self) -> Self {
-        NumericArray(self.0.zip(rhs.0, num_traits::Saturating::saturating_sub))
-    }
-}
-
-impl_wrapping_ops! {
-    WrappingAdd::wrapping_add,
-    WrappingSub::wrapping_sub,
-    WrappingMul::wrapping_mul
-}
-
-impl_checked_ops! {
-    CheckedAdd::checked_add,
-    CheckedSub::checked_sub,
-    CheckedMul::checked_mul,
-    CheckedDiv::checked_div
-}
-
-impl<T: Clone, N: ArrayLength<T>> num_traits::Num for NumericArray<T, N>
-where
-    T: num_traits::Num,
-{
-    type FromStrRadixErr = <T as num_traits::Num>::FromStrRadixErr;
-
-    fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
-        <T as num_traits::Num>::from_str_radix(str, radix).map(Self::from_element)
-    }
-}
-
-impl<T: Clone, N: ArrayLength<T>> num_traits::Signed for NumericArray<T, N>
-where
-    T: num_traits::Signed,
-{
-    fn abs(&self) -> Self {
-        NumericArray((&self.0).map(num_traits::Signed::abs))
-    }
-
-    fn abs_sub(&self, rhs: &Self) -> Self {
-        NumericArray((&self.0).zip(&rhs.0, num_traits::Signed::abs_sub))
-    }
-
-    fn signum(&self) -> Self {
-        NumericArray((&self.0).map(num_traits::Signed::signum))
-    }
-
-    fn is_positive(&self) -> bool {
-        self.iter().all(num_traits::Signed::is_positive)
-    }
-
-    fn is_negative(&self) -> bool {
-        self.iter().any(num_traits::Signed::is_negative)
-    }
-}
-
-impl<T: Clone, N: ArrayLength<T>> num_traits::Unsigned for NumericArray<T, N>
-where
-    T: num_traits::Unsigned,
-{
-}
-
 macro_rules! impl_float_const {
     ($($f:ident),*) => {
-        impl<T, N: ArrayLength<T>> num_traits::FloatConst for NumericArray<T, N>
+        impl<T, N: ArrayLength<T>> FloatConst for NumericArray<T, N>
         where
-            T: num_traits::FloatConst
+            T: FloatConst
         {
             $(
                 fn $f() -> Self {
-                    NumericArray(GenericArray::generate(|_| <T as num_traits::FloatConst>::$f()))
+                    NumericArray(GenericArray::generate(|_| <T as FloatConst>::$f()))
                 }
             )*
         }
     }
 }
 
-impl_float_const!(
-    E,
-    FRAC_1_PI,
-    FRAC_1_SQRT_2,
-    FRAC_2_PI,
-    FRAC_2_SQRT_PI,
-    FRAC_PI_2,
-    FRAC_PI_3,
-    FRAC_PI_4,
-    FRAC_PI_6,
-    FRAC_PI_8,
-    LN_10,
-    LN_2,
-    LOG10_E,
-    LOG2_E,
-    PI,
-    SQRT_2
-);
+// std::ops and num_traits impementations in their own module for wildcard imports
+mod impls {
+    use super::*;
 
-impl<T, N: ArrayLength<T>> num_traits::Bounded for NumericArray<T, N>
-where
-    T: num_traits::Bounded,
-{
-    fn min_value() -> Self {
-        NumericArray(GenericArray::generate(
-            |_| <T as num_traits::Bounded>::min_value(),
-        ))
+    use generic_array::functional::*;
+
+    use std::ops::*;
+    use num_traits::*;
+
+    impl_unary_ops! {
+        Inv::inv, // num_traits
+        Neg::neg,
+        Not::not
     }
 
-    fn max_value() -> Self {
-        NumericArray(GenericArray::generate(
-            |_| <T as num_traits::Bounded>::max_value(),
-        ))
+    impl_binary_ops! {
+        Pow::pow, // num_traits
+        Add::add,
+        Sub::sub,
+        Mul::mul,
+        Div::div,
+        Rem::rem,
+        BitAnd::bitand,
+        BitOr::bitor,
+        BitXor::bitxor,
+        Shr::shr,
+        Shl::shl
+    }
+
+    impl_assign_ops! {
+        AddAssign::add_assign,
+        SubAssign::sub_assign,
+        MulAssign::mul_assign,
+        DivAssign::div_assign,
+        RemAssign::rem_assign,
+        BitAndAssign::bitand_assign,
+        BitOrAssign::bitor_assign,
+        BitXorAssign::bitxor_assign,
+        ShrAssign::shr_assign,
+        ShlAssign::shl_assign
+    }
+
+    impl_wrapping_ops! {
+        WrappingAdd::wrapping_add,
+        WrappingSub::wrapping_sub,
+        WrappingMul::wrapping_mul
+    }
+
+    impl_checked_ops! {
+        CheckedAdd::checked_add,
+        CheckedSub::checked_sub,
+        CheckedMul::checked_mul,
+        CheckedDiv::checked_div
+    }
+
+    impl<T, N: ArrayLength<T>> CheckedShl for NumericArray<T, N>
+    where
+        T: CheckedShl,
+        Self: Shl<u32, Output=Self>,
+    {
+        fn checked_shl(&self, rhs: u32) -> Option<Self> {
+            let mut builder = ArrayBuilder::new();
+
+            for (dst, lhs) in builder.array.iter_mut().zip(self.iter()) {
+                if let Some(value) = CheckedShl::checked_shl(lhs, rhs) {
+                    unsafe {
+                        ptr::write(dst, value);
+                    }
+
+                    builder.position += 1;
+                } else {
+                    return None;
+                }
+            }
+
+            Some(NumericArray(builder.into_inner()))
+        }
+    }
+
+    impl<T, N: ArrayLength<T>> CheckedShr for NumericArray<T, N>
+    where
+        T: CheckedShr,
+        Self: Shr<u32, Output=Self>,
+    {
+        fn checked_shr(&self, rhs: u32) -> Option<Self> {
+            let mut builder = ArrayBuilder::new();
+
+            for (dst, lhs) in builder.array.iter_mut().zip(self.iter()) {
+                if let Some(value) = CheckedShr::checked_shr(lhs, rhs) {
+                    unsafe {
+                        ptr::write(dst, value);
+                    }
+
+                    builder.position += 1;
+                } else {
+                    return None;
+                }
+            }
+
+            Some(NumericArray(builder.into_inner()))
+        }
+    }
+
+    impl_float_const!(
+        E,
+        FRAC_1_PI,
+        FRAC_1_SQRT_2,
+        FRAC_2_PI,
+        FRAC_2_SQRT_PI,
+        FRAC_PI_2,
+        FRAC_PI_3,
+        FRAC_PI_4,
+        FRAC_PI_6,
+        FRAC_PI_8,
+        LN_10,
+        LN_2,
+        LOG10_E,
+        LOG2_E,
+        PI,
+        SQRT_2
+    );
+
+    impl<T, N: ArrayLength<T>> Zero for NumericArray<T, N>
+    where
+        T: Zero,
+    {
+        fn zero() -> Self {
+            NumericArray(GenericArray::generate(|_| <T as Zero>::zero()))
+        }
+
+        fn is_zero(&self) -> bool {
+            self.iter().all(|x| x.is_zero())
+        }
+    }
+
+    impl<T, N: ArrayLength<T>> One for NumericArray<T, N>
+    where
+        T: One,
+    {
+        fn one() -> Self {
+            NumericArray(GenericArray::generate(|_| <T as One>::one()))
+        }
+    }
+
+    impl<T, N: ArrayLength<T>> Saturating for NumericArray<T, N>
+    where
+        T: Saturating,
+    {
+        fn saturating_add(self, rhs: Self) -> Self {
+            NumericArray(self.0.zip(rhs.0, Saturating::saturating_add))
+        }
+
+        fn saturating_sub(self, rhs: Self) -> Self {
+            NumericArray(self.0.zip(rhs.0, Saturating::saturating_sub))
+        }
+    }
+
+    impl<T: Clone, N: ArrayLength<T>> Num for NumericArray<T, N>
+    where
+        T: Num,
+    {
+        type FromStrRadixErr = <T as Num>::FromStrRadixErr;
+
+        fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
+            <T as Num>::from_str_radix(str, radix).map(Self::from_element)
+        }
+    }
+
+    impl<T: Clone, N: ArrayLength<T>> Signed for NumericArray<T, N>
+    where
+        T: Signed,
+    {
+        fn abs(&self) -> Self {
+            NumericArray((&self.0).map(Signed::abs))
+        }
+
+        fn abs_sub(&self, rhs: &Self) -> Self {
+            NumericArray((&self.0).zip(&rhs.0, Signed::abs_sub))
+        }
+
+        fn signum(&self) -> Self {
+            NumericArray((&self.0).map(Signed::signum))
+        }
+
+        fn is_positive(&self) -> bool {
+            self.iter().all(Signed::is_positive)
+        }
+
+        fn is_negative(&self) -> bool {
+            self.iter().any(Signed::is_negative)
+        }
+    }
+
+    impl<T: Clone, N: ArrayLength<T>> Unsigned for NumericArray<T, N>
+    where
+        T: Unsigned,
+    {
+    }
+
+    impl<T, N: ArrayLength<T>> Bounded for NumericArray<T, N>
+    where
+        T: Bounded,
+    {
+        fn min_value() -> Self {
+            NumericArray(GenericArray::generate(
+                |_| <T as Bounded>::min_value(),
+            ))
+        }
+
+        fn max_value() -> Self {
+            NumericArray(GenericArray::generate(
+                |_| <T as Bounded>::max_value(),
+            ))
+        }
     }
 }
 
@@ -769,7 +865,7 @@ mod test {
     }
 
     #[test]
-    fn ops() {
+    fn test_ops() {
         let a = black_box(narr![i32; 1, 3, 5, 7]);
         let b = black_box(narr![i32; 2, 4, 6, 8]);
 
@@ -781,9 +877,9 @@ mod test {
     }
 
     #[test]
-    fn readme_example() {
-        let a = narr![i32; 1, 3, 5, 7];
-        let b = narr![i32; 2, 4, 6, 8];
+    fn test_readme_example() {
+        let a = black_box(narr![i32; 1, 3, 5, 7]);
+        let b = black_box(narr![i32; 2, 4, 6, 8]);
 
         let c = a + b * nconstant!(2);
 
@@ -791,11 +887,23 @@ mod test {
     }
 
     #[test]
-    fn floats() {
+    fn test_floats() {
         let a = black_box(narr![f32; 1.0, 3.0, 5.0, 7.0]);
         let b = black_box(narr![f32; 2.0, 4.0, 6.0, 8.0]);
 
         let c = a + b;
+
+        black_box(c);
+    }
+
+    #[test]
+    fn test_other() {
+        use num_traits::Saturating;
+
+        let a = black_box(narr![i32; 1, 3, 5, 7]);
+        let b = black_box(narr![i32; 2, 4, 6, 8]);
+
+        let c = a.saturating_add(b);
 
         black_box(c);
     }
