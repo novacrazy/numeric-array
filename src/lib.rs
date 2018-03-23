@@ -13,20 +13,24 @@
 //! Example:
 //!
 //! ```rust
+//! extern crate num_traits;
 //! #[macro_use]
 //! extern crate generic_array;
 //! #[macro_use]
 //! extern crate numeric_array;
 //!
+//! use num_traits::Float;
 //! use numeric_array::NumericArray;
 //!
 //! fn main() {
-//!     let a = narr![i32; 1, 3, 5, 7];
-//!     let b = narr![i32; 2, 4, 6, 8];
+//!     let a = narr![f32; 1, 2, 3, 4];
+//!     let b = narr![f32; 5, 6, 7, 8];
+//!     let c = narr![f32; 9, 1, 2, 3];
 //!
-//!     let c = a + b * nconstant!(2);
+//!     // Compiles to a single vfmadd213ps instruction on my machine
+//!     let d = a.mul_add(b, c);
 //!
-//!     assert_eq!(c, narr![i32; 5, 11, 17, 23]);
+//!     assert_eq!(d, narr![f32; 14, 13, 23, 35]);
 //! }
 //! ```
 //!
@@ -57,7 +61,7 @@ use std::mem::ManuallyDrop;
 
 use std::borrow::{Borrow, BorrowMut};
 use std::ops::{Deref, DerefMut, Index, IndexMut};
-use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
+use std::ops::{Range, RangeFrom, RangeFull, RangeTo};
 
 use std::iter::FromIterator;
 
@@ -98,7 +102,7 @@ unsafe impl<T, N: ArrayLength<T>> GenericSequence<T> for NumericArray<T, N> {
 
     fn generate<F>(f: F) -> Self
     where
-        F: FnMut(usize) -> T
+        F: FnMut(usize) -> T,
     {
         NumericArray(GenericArray::generate(f))
     }
@@ -116,7 +120,9 @@ pub struct NumericConstant<T>(pub T);
 /// Creates a new `NumericConstant` from the given expression.
 #[macro_export]
 macro_rules! nconstant {
-    ($value:expr) => { $crate::NumericConstant($value) }
+    ($value: expr) => {
+        $crate::NumericConstant($value)
+    };
 }
 
 impl<T> Deref for NumericConstant<T> {
@@ -182,7 +188,7 @@ where
 
 impl<T, U, N: ArrayLength<T> + ArrayLength<U>> PartialEq<GenericArray<U, N>> for NumericArray<T, N>
 where
-    T: PartialEq<U>
+    T: PartialEq<U>,
 {
     fn eq(&self, rhs: &GenericArray<U, N>) -> bool {
         **self == **rhs
@@ -731,13 +737,32 @@ macro_rules! impl_float_const {
     }
 }
 
-// std::ops and num_traits impementations in their own module for wildcard imports
-mod impls {
+pub mod impls {
+    //! Implementation notes
+    //!
+    //! For any method that returns a single element, like `ToPrimitive` methods and `Float::integer_decode`,
+    //! the first element of the array will be used. If the array length is zero, `None` or zero is returned.
+    //!
+    //! For any method that accepts a single value, the same value is used across the entire operation. For example,
+    //! `powi` will raise the power of every element by the given value.
+    //!
+    //! All floating point classification functions such as `is_finite`, `is_nan`, and `classify`, among others,
+    //! follow a rule of highest importance. `NaN`s take precedence over `Infinite`, `Infinite` takes precedence over
+    //! `Subnormal`, `Subnormal` takes precedence over `Normal`, `Normal` takes precedence over `Zero`
+    //!
+    //! This means that `classify` and `is_nan` will return `NaN`/true if any values are `NaN`,
+    //! and `is_normal` will only return true when ALL values are normal.
+    //!
+    //! Additionally, similar rules are implemented for `is_sign_positive`/`is_positive` and `is_sign_negative`/`is_negative`, where `is_sign_positive` is
+    //! true if all values are positive, but `is_sign_negative` is true when any value is negative.
+
     use super::*;
 
     use generic_array::functional::*;
 
     use std::ops::*;
+    use std::num::FpCategory;
+
     use num_traits::*;
 
     impl_unary_ops! {
@@ -789,7 +814,7 @@ mod impls {
     impl<T, N: ArrayLength<T>> CheckedShl for NumericArray<T, N>
     where
         T: CheckedShl,
-        Self: Shl<u32, Output=Self>,
+        Self: Shl<u32, Output = Self>,
     {
         fn checked_shl(&self, rhs: u32) -> Option<Self> {
             let mut builder = ArrayBuilder::new();
@@ -813,7 +838,7 @@ mod impls {
     impl<T, N: ArrayLength<T>> CheckedShr for NumericArray<T, N>
     where
         T: CheckedShr,
-        Self: Shr<u32, Output=Self>,
+        Self: Shr<u32, Output = Self>,
     {
         fn checked_shr(&self, rhs: u32) -> Option<Self> {
             let mut builder = ArrayBuilder::new();
@@ -935,15 +960,448 @@ mod impls {
         T: Bounded,
     {
         fn min_value() -> Self {
-            NumericArray(GenericArray::generate(
-                |_| <T as Bounded>::min_value(),
-            ))
+            NumericArray(GenericArray::generate(|_| <T as Bounded>::min_value()))
         }
 
         fn max_value() -> Self {
-            NumericArray(GenericArray::generate(
-                |_| <T as Bounded>::max_value(),
-            ))
+            NumericArray(GenericArray::generate(|_| <T as Bounded>::max_value()))
+        }
+    }
+
+    impl<T, N: ArrayLength<T>> ToPrimitive for NumericArray<T, N>
+    where
+        T: ToPrimitive,
+    {
+        #[inline]
+        fn to_i64(&self) -> Option<i64> {
+            if N::to_usize() == 0 {
+                None
+            } else {
+                self.first().and_then(|x| x.to_i64())
+            }
+        }
+
+        #[inline]
+        fn to_u64(&self) -> Option<u64> {
+            if N::to_usize() == 0 {
+                None
+            } else {
+                self.first().and_then(|x| x.to_u64())
+            }
+        }
+
+        #[inline]
+        fn to_isize(&self) -> Option<isize> {
+            if N::to_usize() == 0 {
+                None
+            } else {
+                self.first().and_then(|x| x.to_isize())
+            }
+        }
+
+        #[inline]
+        fn to_i8(&self) -> Option<i8> {
+            if N::to_usize() == 0 {
+                None
+            } else {
+                self.first().and_then(|x| x.to_i8())
+            }
+        }
+
+        #[inline]
+        fn to_i16(&self) -> Option<i16> {
+            if N::to_usize() == 0 {
+                None
+            } else {
+                self.first().and_then(|x| x.to_i16())
+            }
+        }
+
+        #[inline]
+        fn to_i32(&self) -> Option<i32> {
+            if N::to_usize() == 0 {
+                None
+            } else {
+                self.first().and_then(|x| x.to_i32())
+            }
+        }
+
+        #[inline]
+        fn to_usize(&self) -> Option<usize> {
+            if N::to_usize() == 0 {
+                None
+            } else {
+                self.first().and_then(|x| x.to_usize())
+            }
+        }
+
+        #[inline]
+        fn to_u8(&self) -> Option<u8> {
+            if N::to_usize() == 0 {
+                None
+            } else {
+                self.first().and_then(|x| x.to_u8())
+            }
+        }
+
+        #[inline]
+        fn to_u16(&self) -> Option<u16> {
+            if N::to_usize() == 0 {
+                None
+            } else {
+                self.first().and_then(|x| x.to_u16())
+            }
+        }
+
+        #[inline]
+        fn to_u32(&self) -> Option<u32> {
+            if N::to_usize() == 0 {
+                None
+            } else {
+                self.first().and_then(|x| x.to_u32())
+            }
+        }
+
+        #[inline]
+        fn to_f32(&self) -> Option<f32> {
+            if N::to_usize() == 0 {
+                None
+            } else {
+                self.first().and_then(|x| x.to_f32())
+            }
+        }
+
+        #[inline]
+        fn to_f64(&self) -> Option<f64> {
+            if N::to_usize() == 0 {
+                None
+            } else {
+                self.first().and_then(|x| x.to_f64())
+            }
+        }
+    }
+
+    impl<T, N: ArrayLength<T>> NumCast for NumericArray<T, N>
+    where
+        T: NumCast + Clone,
+    {
+        fn from<P: ToPrimitive>(n: P) -> Option<Self> {
+            T::from(n).map(|t| Self::from_element(t))
+        }
+    }
+
+    impl<T, N: ArrayLength<T>> Float for NumericArray<T, N>
+    where
+        T: Float + Copy,
+        Self: Copy,
+    {
+        #[inline]
+        fn nan() -> Self {
+            Self::from_element(Float::nan())
+        }
+
+        #[inline]
+        fn infinity() -> Self {
+            Self::from_element(Float::infinity())
+        }
+
+        #[inline]
+        fn neg_infinity() -> Self {
+            Self::from_element(Float::neg_infinity())
+        }
+
+        #[inline]
+        fn neg_zero() -> Self {
+            Self::from_element(Float::neg_zero())
+        }
+
+        #[inline]
+        fn min_value() -> Self {
+            Self::from_element(Float::min_value())
+        }
+
+        #[inline]
+        fn min_positive_value() -> Self {
+            Self::from_element(Float::min_positive_value())
+        }
+
+        #[inline]
+        fn max_value() -> Self {
+            Self::from_element(Float::max_value())
+        }
+
+        fn is_nan(self) -> bool {
+            self.iter().any(|x| Float::is_nan(*x))
+        }
+
+        fn is_infinite(self) -> bool {
+            self.iter().any(|x| Float::is_infinite(*x))
+        }
+
+        fn is_finite(self) -> bool {
+            self.iter().all(|x| Float::is_finite(*x))
+        }
+
+        fn is_normal(self) -> bool {
+            self.iter().all(|x| Float::is_normal(*x))
+        }
+
+        fn classify(self) -> FpCategory {
+            let mut ret = FpCategory::Zero;
+
+            for x in self.iter() {
+                match Float::classify(*x) {
+                    // If NaN is found, return NaN immediately
+                    FpCategory::Nan => return FpCategory::Nan,
+                    // If infinite, set infinite
+                    FpCategory::Infinite => ret = FpCategory::Infinite,
+                    // If Subnormal and not infinite, set subnormal
+                    FpCategory::Subnormal if ret != FpCategory::Infinite => {
+                        ret = FpCategory::Subnormal;
+                    }
+                    // If normal and zero, upgrade to normal
+                    FpCategory::Normal if ret == FpCategory::Zero => {
+                        ret = FpCategory::Normal;
+                    }
+                    _ => {}
+                }
+            }
+
+            ret
+        }
+
+        fn floor(self) -> Self {
+            self.0.map(Float::floor).into()
+        }
+
+        fn ceil(self) -> Self {
+            self.0.map(Float::ceil).into()
+        }
+
+        fn round(self) -> Self {
+            self.0.map(Float::round).into()
+        }
+
+        fn trunc(self) -> Self {
+            self.0.map(Float::trunc).into()
+        }
+
+        fn fract(self) -> Self {
+            self.0.map(Float::fract).into()
+        }
+
+        fn abs(self) -> Self {
+            self.0.map(Float::abs).into()
+        }
+
+        fn signum(self) -> Self {
+            self.0.map(Float::signum).into()
+        }
+
+        fn is_sign_positive(self) -> bool {
+            self.iter().all(|x| Float::is_sign_positive(*x))
+        }
+
+        fn is_sign_negative(self) -> bool {
+            self.iter().any(|x| Float::is_sign_negative(*x))
+        }
+
+        fn mul_add(self, a: Self, b: Self) -> Self {
+            let mut left = ArrayConsumer::new(self.0);
+            let mut a_arr = ArrayConsumer::new(a.0);
+            let mut b_arr = ArrayConsumer::new(b.0);
+
+            let mut destination = ArrayBuilder::new();
+
+            for (dst, (l, (a, b))) in destination.array.iter_mut().zip(
+                left.array
+                    .iter()
+                    .zip(a_arr.array.iter().zip(b_arr.array.iter())),
+            ) {
+                unsafe {
+                    ptr::write(
+                        dst,
+                        Float::mul_add(ptr::read(l), ptr::read(a), ptr::read(b)),
+                    )
+                }
+
+                left.position += 1;
+                a_arr.position += 1;
+                b_arr.position += 1;
+                destination.position += 1;
+            }
+
+            NumericArray::new(destination.into_inner())
+        }
+
+        fn recip(self) -> Self {
+            self.0.map(Float::recip).into()
+        }
+
+        fn powi(self, n: i32) -> Self {
+            self.0.map(|x| Float::powi(x, n)).into()
+        }
+
+        fn powf(self, n: Self) -> Self {
+            self.0.zip(n.0, Float::powf).into()
+        }
+
+        fn sqrt(self) -> Self {
+            self.0.map(Float::sqrt).into()
+        }
+
+        fn exp(self) -> Self {
+            self.0.map(Float::exp).into()
+        }
+
+        fn exp2(self) -> Self {
+            self.0.map(Float::exp2).into()
+        }
+
+        fn ln(self) -> Self {
+            self.0.map(Float::ln).into()
+        }
+
+        fn log(self, base: Self) -> Self {
+            self.0.zip(base.0, Float::log).into()
+        }
+
+        fn log2(self) -> Self {
+            self.0.map(Float::log2).into()
+        }
+
+        fn log10(self) -> Self {
+            self.0.map(Float::log10).into()
+        }
+
+        fn max(self, other: Self) -> Self {
+            self.0.zip(other.0, Float::max).into()
+        }
+
+        fn min(self, other: Self) -> Self {
+            self.0.zip(other.0, Float::min).into()
+        }
+
+        fn abs_sub(self, other: Self) -> Self {
+            self.0.zip(other.0, Float::abs_sub).into()
+        }
+
+        fn cbrt(self) -> Self {
+            self.0.map(Float::cbrt).into()
+        }
+
+        fn hypot(self, other: Self) -> Self {
+            self.0.zip(other.0, Float::hypot).into()
+        }
+
+        fn sin(self) -> Self {
+            self.0.map(Float::sin).into()
+        }
+
+        fn cos(self) -> Self {
+            self.0.map(Float::cos).into()
+        }
+
+        fn tan(self) -> Self {
+            self.0.map(Float::tan).into()
+        }
+
+        fn asin(self) -> Self {
+            self.0.map(Float::asin).into()
+        }
+
+        fn acos(self) -> Self {
+            self.0.map(Float::acos).into()
+        }
+
+        fn atan(self) -> Self {
+            self.0.map(Float::atan).into()
+        }
+
+        fn atan2(self, other: Self) -> Self {
+            self.0.zip(other.0, Float::atan2).into()
+        }
+
+        fn sin_cos(self) -> (Self, Self) {
+            let mut source = ArrayConsumer::new(self.0);
+            let mut sin_destination = ArrayBuilder::new();
+            let mut cos_destination = ArrayBuilder::new();
+
+            for ((sin, cos), src) in sin_destination
+                .array
+                .iter_mut()
+                .zip(cos_destination.array.iter_mut())
+                .zip(source.array.iter())
+            {
+                unsafe {
+                    let (s, c) = Float::sin_cos(ptr::read(src));
+
+                    ptr::write(sin, s);
+                    ptr::write(cos, c);
+                }
+
+                source.position += 1;
+                sin_destination.position += 1;
+                cos_destination.position += 1;
+            }
+
+            (
+                NumericArray::new(sin_destination.into_inner()),
+                NumericArray::new(cos_destination.into_inner()),
+            )
+        }
+
+        fn exp_m1(self) -> Self {
+            self.0.map(Float::exp_m1).into()
+        }
+
+        fn ln_1p(self) -> Self {
+            self.0.map(Float::ln_1p).into()
+        }
+
+        fn sinh(self) -> Self {
+            self.0.map(Float::sinh).into()
+        }
+
+        fn cosh(self) -> Self {
+            self.0.map(Float::cosh).into()
+        }
+
+        fn tanh(self) -> Self {
+            self.0.map(Float::tanh).into()
+        }
+
+        fn asinh(self) -> Self {
+            self.0.map(Float::asinh).into()
+        }
+
+        fn acosh(self) -> Self {
+            self.0.map(Float::acosh).into()
+        }
+
+        fn atanh(self) -> Self {
+            self.0.map(Float::atanh).into()
+        }
+
+        fn integer_decode(self) -> (u64, i16, i8) {
+            if N::to_usize() == 0 {
+                (0, 0, 0)
+            } else {
+                self.first().unwrap().integer_decode()
+            }
+        }
+
+        #[inline]
+        fn epsilon() -> Self {
+            Self::from_element(Float::epsilon())
+        }
+
+        fn to_degrees(self) -> Self {
+            self.0.map(Float::to_degrees).into()
+        }
+
+        fn to_radians(self) -> Self {
+            self.0.map(Float::to_radians).into()
         }
     }
 }
@@ -952,6 +1410,7 @@ mod impls {
 mod test {
     use super::*;
 
+    // This stops the compiler from optimizing based on known data, only data types.
     #[inline(never)]
     pub fn black_box<T>(val: T) -> T {
         use std::{mem, ptr};
@@ -974,7 +1433,7 @@ mod test {
     }
 
     #[test]
-    fn test_readme_example() {
+    fn test_constants() {
         let a = black_box(narr![i32; 1, 3, 5, 7]);
         let b = black_box(narr![i32; 2, 4, 6, 8]);
 
@@ -1003,5 +1462,72 @@ mod test {
         let c = a.saturating_add(b);
 
         black_box(c);
+    }
+
+    #[test]
+    fn test_atan2() {
+        use num_traits::Float;
+
+        let a = black_box(narr![f32; 1, 2, 3, 4]);
+        let b = black_box(narr![f32; 2, 3, 4, 5]);
+
+        let c = a.atan2(b);
+
+        assert_eq!(c, narr![f32; 0.4636476, 0.5880026, 0.6435011, 0.67474097]);
+    }
+
+    #[test]
+    fn test_classify() {
+        use std::num::FpCategory;
+        use num_traits::Float;
+
+        let nan = f32::nan();
+        let infinity = f32::infinity();
+
+        let any_nan = black_box(narr![f32; 1, 2, nan, 0]);
+        let any_infinite = black_box(narr![f32; 1, infinity, 2, 3]);
+        let any_mixed = black_box(narr![f32; 1, infinity, nan, 0]);
+        let all_normal = black_box(narr![f32; 1, 2, 3, 4]);
+        let all_zero = black_box(narr![f32; 0, 0, 0, 0]);
+
+        let non_zero = black_box(narr![f32; 0, 1, 0, 0]);
+
+        assert_eq!(any_nan.classify(), FpCategory::Nan);
+        assert_eq!(any_mixed.classify(), FpCategory::Nan);
+        assert_eq!(any_infinite.classify(), FpCategory::Infinite);
+        assert_eq!(all_normal.classify(), FpCategory::Normal);
+        assert_eq!(all_zero.classify(), FpCategory::Zero);
+
+        assert_eq!(non_zero.classify(), FpCategory::Normal);
+
+        assert_eq!(any_nan.is_infinite(), false);
+        assert_eq!(any_mixed.is_infinite(), true);
+        assert_eq!(any_nan.is_nan(), true);
+        assert_eq!(any_mixed.is_nan(), true);
+        assert_eq!(any_infinite.is_nan(), false);
+    }
+
+    #[test]
+    fn test_tanh() {
+        use num_traits::Float;
+
+        let a = black_box(narr![f32; 1, 2, 3, 4]);
+
+        let b = a.tanh();
+
+        println!("{:?}", b);
+    }
+
+    #[test]
+    pub fn test_madd() {
+        use num_traits::Float;
+
+        let a = black_box(narr![f32; 1, 2, 3, 4]);
+        let b = black_box(narr![f32; 5, 6, 7, 8]);
+        let c = black_box(narr![f32; 9, 1, 2, 3]);
+
+        let d = a.mul_add(b, c);
+
+        assert_eq!(d, narr![f32; 14, 13, 23, 35]);
     }
 }
