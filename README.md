@@ -10,20 +10,24 @@ Additionally, most of `num_traits` are implemented, including `Num` itself. So y
 Example:
 
 ```rust
+extern crate num_traits;
 #[macro_use]
 extern crate generic_array;
 #[macro_use]
 extern crate numeric_array;
 
+use num_traits::Float;
 use numeric_array::NumericArray;
 
 fn main() {
-    let a = narr![i32; 1, 3, 5, 7];
-    let b = narr![i32; 2, 4, 6, 8];
+    let a = narr![f32; 1, 2, 3, 4];
+    let b = narr![f32; 5, 6, 7, 8];
+    let c = narr![f32; 9, 1, 2, 3];
 
-    let c = a + b * nconstant!(2);
+    // Compiles to a single vfmadd213ps instruction on my machine
+    let d = a.mul_add(b, c);
 
-    assert_eq!(c, narr![i32; 5, 11, 17, 23]);
+    assert_eq!(d, narr![f32; 14, 13, 23, 35]);
 }
 ```
 
