@@ -464,6 +464,63 @@ where
     }
 }
 
+// Just copied from `generic-array` internals
+struct ArrayBuilder<T, N: ArrayLength<T>> {
+    array: ManuallyDrop<GenericArray<T, N>>,
+    position: usize,
+}
+
+impl<T, N: ArrayLength<T>> ArrayBuilder<T, N> {
+    fn new() -> ArrayBuilder<T, N> {
+        ArrayBuilder {
+            array: ManuallyDrop::new(unsafe { mem::uninitialized() }),
+            position: 0,
+        }
+    }
+
+    fn into_inner(self) -> GenericArray<T, N> {
+        let array = unsafe { ptr::read(&self.array) };
+
+        mem::forget(self);
+
+        ManuallyDrop::into_inner(array)
+    }
+}
+
+impl<T, N: ArrayLength<T>> Drop for ArrayBuilder<T, N> {
+    fn drop(&mut self) {
+        for value in self.array.iter_mut().take(self.position) {
+            unsafe {
+                ptr::drop_in_place(value);
+            }
+        }
+    }
+}
+
+struct ArrayConsumer<T, N: ArrayLength<T>> {
+    array: ManuallyDrop<GenericArray<T, N>>,
+    position: usize,
+}
+
+impl<T, N: ArrayLength<T>> ArrayConsumer<T, N> {
+    fn new(array: GenericArray<T, N>) -> ArrayConsumer<T, N> {
+        ArrayConsumer {
+            array: ManuallyDrop::new(array),
+            position: 0,
+        }
+    }
+}
+
+impl<T, N: ArrayLength<T>> Drop for ArrayConsumer<T, N> {
+    fn drop(&mut self) {
+        for i in self.position..N::to_usize() {
+            unsafe {
+                ptr::drop_in_place(self.array.get_unchecked_mut(i));
+            }
+        }
+    }
+}
+
 macro_rules! impl_unary_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
@@ -580,11 +637,13 @@ macro_rules! impl_assign_ops {
                 T: $op_trait<U>
             {
                 fn $op(&mut self, rhs: NumericArray<U, N>) {
-                    for (lhs, rhs) in self.iter_mut().zip(rhs.iter()) {
-                        $op_trait::$op(lhs, unsafe { ptr::read(rhs) });
-                    }
+                    let mut consumer = ArrayConsumer::new(rhs.0);
 
-                    mem::forget(rhs);
+                    for (lhs, rhs) in self.iter_mut().zip(consumer.array.iter()) {
+                        $op_trait::$op(lhs, unsafe { ptr::read(rhs) });
+
+                        consumer.position += 1;
+                    }
                 }
             }
 
@@ -625,39 +684,6 @@ macro_rules! impl_wrapping_ops {
                 }
             }
         )*
-    }
-}
-
-// Just copied from `generic-array` internals
-struct ArrayBuilder<T, N: ArrayLength<T>> {
-    array: ManuallyDrop<GenericArray<T, N>>,
-    position: usize,
-}
-
-impl<T, N: ArrayLength<T>> ArrayBuilder<T, N> {
-    fn new() -> ArrayBuilder<T, N> {
-        ArrayBuilder {
-            array: ManuallyDrop::new(unsafe { mem::uninitialized() }),
-            position: 0,
-        }
-    }
-
-    fn into_inner(self) -> GenericArray<T, N> {
-        let array = unsafe { ptr::read(&self.array) };
-
-        mem::forget(self);
-
-        ManuallyDrop::into_inner(array)
-    }
-}
-
-impl<T, N: ArrayLength<T>> Drop for ArrayBuilder<T, N> {
-    fn drop(&mut self) {
-        for value in self.array.iter_mut().take(self.position) {
-            unsafe {
-                ptr::drop_in_place(value);
-            }
-        }
     }
 }
 
