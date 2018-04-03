@@ -18,8 +18,8 @@
 
 use super::*;
 
-use std::ops::*;
 use std::num::FpCategory;
+use std::ops::*;
 
 use num_traits::*;
 
@@ -681,22 +681,20 @@ where
 
         let mut destination = ArrayBuilder::new();
 
-        for (dst, (l, (a, b))) in destination.array.iter_mut().zip(
-            left.array
-                .iter()
-                .zip(a_arr.array.iter().zip(b_arr.array.iter())),
-        ) {
+        for (dst, (l, (a, b))) in destination.array.iter_mut().zip(left.array.iter().zip(a_arr.array.iter().zip(b_arr.array.iter()))) {
             unsafe {
-                ptr::write(
-                    dst,
-                    Float::mul_add(ptr::read(l), ptr::read(a), ptr::read(b)),
-                )
-            }
+                let l = ptr::read(l);
+                let a = ptr::read(a);
+                let b = ptr::read(b);
 
-            left.position += 1;
-            a_arr.position += 1;
-            b_arr.position += 1;
-            destination.position += 1;
+                left.position += 1;
+                a_arr.position += 1;
+                b_arr.position += 1;
+
+                ptr::write(dst, Float::mul_add(l, a, b));
+
+                destination.position += 1;
+            }
         }
 
         NumericArray::new(destination.into_inner())
@@ -795,28 +793,23 @@ where
         let mut sin_destination = ArrayBuilder::new();
         let mut cos_destination = ArrayBuilder::new();
 
-        for ((sin, cos), src) in sin_destination
-            .array
-            .iter_mut()
-            .zip(cos_destination.array.iter_mut())
-            .zip(source.array.iter())
-        {
+        for ((sin, cos), src) in sin_destination.array.iter_mut().zip(cos_destination.array.iter_mut()).zip(source.array.iter()) {
             unsafe {
-                let (s, c) = Float::sin_cos(ptr::read(src));
+                let x = ptr::read(src);
+
+                source.position += 1;
+
+                let (s, c) = Float::sin_cos(x);
 
                 ptr::write(sin, s);
                 ptr::write(cos, c);
-            }
 
-            source.position += 1;
-            sin_destination.position += 1;
-            cos_destination.position += 1;
+                sin_destination.position += 1;
+                cos_destination.position += 1;
+            }
         }
 
-        (
-            NumericArray::new(sin_destination.into_inner()),
-            NumericArray::new(cos_destination.into_inner()),
-        )
+        (NumericArray::new(sin_destination.into_inner()), NumericArray::new(cos_destination.into_inner()))
     }
 
     fn exp_m1(self) -> Self {

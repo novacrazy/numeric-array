@@ -67,9 +67,9 @@ use std::iter::FromIterator;
 
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 
-use generic_array::{ArrayLength, GenericArray, GenericArrayIter};
-use generic_array::sequence::*;
 use generic_array::functional::*;
+use generic_array::sequence::*;
+use generic_array::{ArrayLength, GenericArray, GenericArrayIter};
 
 pub mod impls;
 pub mod simd;
@@ -124,7 +124,7 @@ pub struct NumericConstant<T>(pub T);
 /// Creates a new `NumericConstant` from the given expression.
 #[macro_export]
 macro_rules! nconstant {
-    ($value: expr) => {
+    ($value:expr) => {
         $crate::NumericConstant($value)
     };
 }
@@ -151,7 +151,7 @@ impl<T: Debug, N: ArrayLength<T>> Debug for NumericArray<T, N> {
 
 impl<X, T, N: ArrayLength<T>> From<X> for NumericArray<T, N>
 where
-    X: Into<GenericArray<T, N>>
+    X: Into<GenericArray<T, N>>,
 {
     fn from(x: X) -> NumericArray<T, N> {
         NumericArray::new(x.into())
@@ -612,8 +612,8 @@ pub mod test {
 
     #[test]
     fn test_classify() {
-        use std::num::FpCategory;
         use num_traits::Float;
+        use std::num::FpCategory;
 
         let nan = f32::nan();
         let infinity = f32::infinity();
