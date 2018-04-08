@@ -12,6 +12,6 @@ license = "MIT"
 categories = ["data-structures"]
 
 [dependencies]
-generic-array = "0.11"
+generic-array = {path = "../generic-array"}
 num-traits = "0.2.2"
 typenum = "1.9"

@@ -55,9 +55,7 @@ extern crate typenum;
 #[cfg_attr(test, macro_use)]
 extern crate generic_array;
 
-use std::{cmp, mem, ptr, slice};
-
-use std::mem::ManuallyDrop;
+use std::{cmp, ptr, slice};
 
 use std::borrow::{Borrow, BorrowMut};
 use std::ops::{Deref, DerefMut, Index, IndexMut};
@@ -478,63 +476,6 @@ where
 {
     fn default() -> Self {
         NumericArray(GenericArray::default())
-    }
-}
-
-// Just copied from `generic-array` internals
-struct ArrayBuilder<T, N: ArrayLength<T>> {
-    array: ManuallyDrop<GenericArray<T, N>>,
-    position: usize,
-}
-
-impl<T, N: ArrayLength<T>> ArrayBuilder<T, N> {
-    fn new() -> ArrayBuilder<T, N> {
-        ArrayBuilder {
-            array: ManuallyDrop::new(unsafe { mem::uninitialized() }),
-            position: 0,
-        }
-    }
-
-    fn into_inner(self) -> GenericArray<T, N> {
-        let array = unsafe { ptr::read(&self.array) };
-
-        mem::forget(self);
-
-        ManuallyDrop::into_inner(array)
-    }
-}
-
-impl<T, N: ArrayLength<T>> Drop for ArrayBuilder<T, N> {
-    fn drop(&mut self) {
-        for value in self.array.iter_mut().take(self.position) {
-            unsafe {
-                ptr::drop_in_place(value);
-            }
-        }
-    }
-}
-
-struct ArrayConsumer<T, N: ArrayLength<T>> {
-    array: ManuallyDrop<GenericArray<T, N>>,
-    position: usize,
-}
-
-impl<T, N: ArrayLength<T>> ArrayConsumer<T, N> {
-    fn new(array: GenericArray<T, N>) -> ArrayConsumer<T, N> {
-        ArrayConsumer {
-            array: ManuallyDrop::new(array),
-            position: 0,
-        }
-    }
-}
-
-impl<T, N: ArrayLength<T>> Drop for ArrayConsumer<T, N> {
-    fn drop(&mut self) {
-        for i in self.position..N::to_usize() {
-            unsafe {
-                ptr::drop_in_place(self.array.get_unchecked_mut(i));
-            }
-        }
     }
 }
 

@@ -23,6 +23,8 @@ use std::ops::*;
 
 use num_traits::*;
 
+use generic_array::{ArrayBuilder, ArrayConsumer};
+
 macro_rules! impl_unary_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
@@ -139,12 +141,16 @@ macro_rules! impl_assign_ops {
                 T: $op_trait<U>
             {
                 fn $op(&mut self, rhs: NumericArray<U, N>) {
-                    let mut consumer = ArrayConsumer::new(rhs.0);
+                    unsafe {
+                        let mut right = ArrayConsumer::new(rhs.0);
 
-                    for (lhs, rhs) in self.iter_mut().zip(consumer.array.iter()) {
-                        $op_trait::$op(lhs, unsafe { ptr::read(rhs) });
+                        let (right_iter, right_position) = right.iter_position();
 
-                        consumer.position += 1;
+                        for (lhs, rhs) in self.iter_mut().zip(right_iter) {
+                            $op_trait::$op(lhs, ptr::read(rhs));
+
+                            *right_position += 1;
+                        }
                     }
                 }
             }
@@ -197,21 +203,25 @@ macro_rules! impl_checked_ops {
                 T: $op_trait
             {
                 fn $op(&self, rhs: &Self) -> Option<Self> {
-                    let mut builder = ArrayBuilder::new();
+                    unsafe {
+                        let mut builder = ArrayBuilder::new();
 
-                    for (dst, (lhs, rhs)) in builder.array.iter_mut().zip(self.iter().zip(rhs.iter())) {
-                        if let Some(value) = $op_trait::$op(lhs, rhs) {
-                            unsafe {
-                                ptr::write(dst, value);
+                        {
+                            let (array_iter, position) = builder.iter_position();
+
+                            for (dst, (lhs, rhs)) in array_iter.zip(self.iter().zip(rhs.iter())) {
+                                if let Some(value) = $op_trait::$op(lhs, rhs) {
+                                    ptr::write(dst, value);
+
+                                    *position += 1;
+                                } else {
+                                    return None;
+                                }
                             }
-
-                            builder.position += 1;
-                        } else {
-                            return None;
                         }
-                    }
 
-                    Some(NumericArray(builder.into_inner()))
+                        Some(NumericArray(builder.into_inner()))
+                    }
                 }
             }
         )*
@@ -285,21 +295,25 @@ where
     Self: Shl<u32, Output = Self>,
 {
     fn checked_shl(&self, rhs: u32) -> Option<Self> {
-        let mut builder = ArrayBuilder::new();
+        unsafe {
+            let mut builder = ArrayBuilder::new();
 
-        for (dst, lhs) in builder.array.iter_mut().zip(self.iter()) {
-            if let Some(value) = CheckedShl::checked_shl(lhs, rhs) {
-                unsafe {
-                    ptr::write(dst, value);
+            {
+                let (builder_iter, builder_position) = builder.iter_position();
+
+                for (dst, lhs) in builder_iter.zip(self.iter()) {
+                    if let Some(value) = CheckedShl::checked_shl(lhs, rhs) {
+                        ptr::write(dst, value);
+
+                        *builder_position += 1;
+                    } else {
+                        return None;
+                    }
                 }
-
-                builder.position += 1;
-            } else {
-                return None;
             }
-        }
 
-        Some(NumericArray(builder.into_inner()))
+            Some(NumericArray(builder.into_inner()))
+        }
     }
 }
 
@@ -309,21 +323,25 @@ where
     Self: Shr<u32, Output = Self>,
 {
     fn checked_shr(&self, rhs: u32) -> Option<Self> {
-        let mut builder = ArrayBuilder::new();
+        unsafe {
+            let mut builder = ArrayBuilder::new();
 
-        for (dst, lhs) in builder.array.iter_mut().zip(self.iter()) {
-            if let Some(value) = CheckedShr::checked_shr(lhs, rhs) {
-                unsafe {
-                    ptr::write(dst, value);
+            {
+                let (builder_iter, builder_position) = builder.iter_position();
+
+                for (dst, lhs) in builder_iter.zip(self.iter()) {
+                    if let Some(value) = CheckedShr::checked_shr(lhs, rhs) {
+                        ptr::write(dst, value);
+
+                        *builder_position += 1;
+                    } else {
+                        return None;
+                    }
                 }
-
-                builder.position += 1;
-            } else {
-                return None;
             }
-        }
 
-        Some(NumericArray(builder.into_inner()))
+            Some(NumericArray(builder.into_inner()))
+        }
     }
 }
 
@@ -554,7 +572,7 @@ where
     T: NumCast + Clone,
 {
     fn from<P: ToPrimitive>(n: P) -> Option<Self> {
-        T::from(n).map(|t| Self::from_element(t))
+        T::from(n).map(Self::from_element)
     }
 }
 
@@ -675,29 +693,37 @@ where
     }
 
     fn mul_add(self, a: Self, b: Self) -> Self {
-        let mut left = ArrayConsumer::new(self.0);
-        let mut a_arr = ArrayConsumer::new(a.0);
-        let mut b_arr = ArrayConsumer::new(b.0);
+        unsafe {
+            let mut left = ArrayConsumer::new(self.0);
+            let mut a_arr = ArrayConsumer::new(a.0);
+            let mut b_arr = ArrayConsumer::new(b.0);
 
-        let mut destination = ArrayBuilder::new();
+            let (left_iter, left_position) = left.iter_position();
+            let (a_arr_iter, a_arr_position) = a_arr.iter_position();
+            let (b_arr_iter, b_arr_position) = b_arr.iter_position();
 
-        for (dst, (l, (a, b))) in destination.array.iter_mut().zip(left.array.iter().zip(a_arr.array.iter().zip(b_arr.array.iter()))) {
-            unsafe {
-                let l = ptr::read(l);
-                let a = ptr::read(a);
-                let b = ptr::read(b);
+            let mut destination = ArrayBuilder::new();
 
-                left.position += 1;
-                a_arr.position += 1;
-                b_arr.position += 1;
+            {
+                let (destination_iter, destination_position) = destination.iter_position();
 
-                ptr::write(dst, Float::mul_add(l, a, b));
+                for (dst, (l, (a, b))) in destination_iter.zip(left_iter.zip(a_arr_iter.zip(b_arr_iter))) {
+                    let l = ptr::read(l);
+                    let a = ptr::read(a);
+                    let b = ptr::read(b);
 
-                destination.position += 1;
+                    *left_position += 1;
+                    *a_arr_position += 1;
+                    *b_arr_position += 1;
+
+                    ptr::write(dst, Float::mul_add(l, a, b));
+
+                    *destination_position += 1;
+                }
             }
-        }
 
-        NumericArray::new(destination.into_inner())
+            NumericArray::new(destination.into_inner())
+        }
     }
 
     fn recip(self) -> Self {
@@ -789,27 +815,35 @@ where
     }
 
     fn sin_cos(self) -> (Self, Self) {
-        let mut source = ArrayConsumer::new(self.0);
-        let mut sin_destination = ArrayBuilder::new();
-        let mut cos_destination = ArrayBuilder::new();
+        unsafe {
+            let mut source = ArrayConsumer::new(self.0);
 
-        for ((sin, cos), src) in sin_destination.array.iter_mut().zip(cos_destination.array.iter_mut()).zip(source.array.iter()) {
-            unsafe {
-                let x = ptr::read(src);
+            let (source_iter, source_position) = source.iter_position();
 
-                source.position += 1;
+            let mut sin_destination = ArrayBuilder::new();
+            let mut cos_destination = ArrayBuilder::new();
 
-                let (s, c) = Float::sin_cos(x);
+            {
+                let (sin_destination_iter, sin_destination_position) = sin_destination.iter_position();
+                let (cos_destination_iter, cos_destination_position) = cos_destination.iter_position();
 
-                ptr::write(sin, s);
-                ptr::write(cos, c);
+                for ((sin, cos), src) in sin_destination_iter.zip(cos_destination_iter).zip(source_iter) {
+                    let x = ptr::read(src);
 
-                sin_destination.position += 1;
-                cos_destination.position += 1;
+                    *source_position += 1;
+
+                    let (s, c) = Float::sin_cos(x);
+
+                    ptr::write(sin, s);
+                    ptr::write(cos, c);
+
+                    *sin_destination_position += 1;
+                    *cos_destination_position += 1;
+                }
             }
-        }
 
-        (NumericArray::new(sin_destination.into_inner()), NumericArray::new(cos_destination.into_inner()))
+            (NumericArray::new(sin_destination.into_inner()), NumericArray::new(cos_destination.into_inner()))
+        }
     }
 
     fn exp_m1(self) -> Self {
