@@ -200,10 +200,6 @@ where
     fn eq(&self, rhs: &GenericArray<U, N>) -> bool {
         **self == **rhs
     }
-
-    fn ne(&self, rhs: &GenericArray<U, N>) -> bool {
-        **self == **rhs
-    }
 }
 
 impl<T, N: ArrayLength<T>> cmp::Eq for NumericArray<T, N>
