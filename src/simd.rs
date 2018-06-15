@@ -13,7 +13,7 @@ pub unsafe trait Select<T, N: ArrayLength<T>> {
     /// Example:
     ///
     /// ```ignore
-    /// use simd::SimdSelect;
+    /// use numeric_array::simd::Select;
     ///
     /// let mask = narr![bool; true, false, false, true];
     ///
