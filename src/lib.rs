@@ -55,6 +55,9 @@ extern crate typenum;
 #[cfg_attr(test, macro_use)]
 extern crate generic_array;
 
+#[cfg(feature = "serde1")]
+extern crate serde;
+
 use std::{cmp, ptr, slice};
 
 use std::borrow::{Borrow, BorrowMut};
@@ -68,6 +71,9 @@ use std::fmt::{Debug, Formatter, Result as FmtResult};
 use generic_array::functional::*;
 use generic_array::sequence::*;
 use generic_array::{ArrayLength, GenericArray, GenericArrayIter};
+
+#[cfg(feature = "serde1")]
+mod impl_serde;
 
 pub mod impls;
 pub mod simd;
@@ -162,11 +168,7 @@ impl<T: Clone, N: ArrayLength<T>> Clone for NumericArray<T, N> {
     }
 }
 
-impl<T: Copy, N: ArrayLength<T>> Copy for NumericArray<T, N>
-where
-    N::ArrayType: Copy,
-{
-}
+impl<T: Copy, N: ArrayLength<T>> Copy for NumericArray<T, N> where N::ArrayType: Copy {}
 
 impl<T, N: ArrayLength<T>> Deref for NumericArray<T, N> {
     type Target = [T];
@@ -200,11 +202,7 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> cmp::Eq for NumericArray<T, N>
-where
-    T: cmp::Eq,
-{
-}
+impl<T, N: ArrayLength<T>> cmp::Eq for NumericArray<T, N> where T: cmp::Eq {}
 
 impl<T, N: ArrayLength<T>> PartialOrd<Self> for NumericArray<T, N>
 where

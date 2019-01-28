@@ -435,11 +435,7 @@ where
     }
 }
 
-impl<T: Clone, N: ArrayLength<T>> Unsigned for NumericArray<T, N>
-where
-    T: Unsigned,
-{
-}
+impl<T: Clone, N: ArrayLength<T>> Unsigned for NumericArray<T, N> where T: Unsigned {}
 
 impl<T, N: ArrayLength<T>> Bounded for NumericArray<T, N>
 where
