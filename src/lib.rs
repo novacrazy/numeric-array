@@ -382,50 +382,50 @@ impl<T, N: ArrayLength<T>> BorrowMut<[T]> for NumericArray<T, N> {
 impl<T, N: ArrayLength<T>> Index<usize> for NumericArray<T, N> {
     type Output = T;
 
-    #[inline]
+    #[inline(always)]
     fn index(&self, index: usize) -> &T {
-        &(**self)[index]
+        self.0.index(index)
     }
 }
 
 impl<T, N: ArrayLength<T>> IndexMut<usize> for NumericArray<T, N> {
-    #[inline]
+    #[inline(always)]
     fn index_mut(&mut self, index: usize) -> &mut T {
-        &mut (**self)[index]
+        self.0.index_mut(index)
     }
 }
 
 impl<T, N: ArrayLength<T>> Index<Range<usize>> for NumericArray<T, N> {
     type Output = [T];
 
-    #[inline]
+    #[inline(always)]
     fn index(&self, index: Range<usize>) -> &[T] {
-        Index::index(&**self, index)
+        self.0.index(index)
     }
 }
 
 impl<T, N: ArrayLength<T>> Index<RangeTo<usize>> for NumericArray<T, N> {
     type Output = [T];
 
-    #[inline]
+    #[inline(always)]
     fn index(&self, index: RangeTo<usize>) -> &[T] {
-        Index::index(&**self, index)
+        self.0.index(index)
     }
 }
 
 impl<T, N: ArrayLength<T>> Index<RangeFrom<usize>> for NumericArray<T, N> {
     type Output = [T];
 
-    #[inline]
+    #[inline(always)]
     fn index(&self, index: RangeFrom<usize>) -> &[T] {
-        Index::index(&**self, index)
+        self.0.index(index)
     }
 }
 
 impl<T, N: ArrayLength<T>> Index<RangeFull> for NumericArray<T, N> {
     type Output = [T];
 
-    #[inline]
+    #[inline(always)]
     fn index(&self, _index: RangeFull) -> &[T] {
         self
     }
