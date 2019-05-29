@@ -75,6 +75,7 @@ use generic_array::{ArrayLength, GenericArray, GenericArrayIter};
 #[cfg(feature = "serde1")]
 mod impl_serde;
 
+pub mod geometry;
 pub mod impls;
 pub mod simd;
 
