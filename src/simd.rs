@@ -47,7 +47,9 @@ where
             {
                 let (destination_iter, destination_position) = destination.iter_position();
 
-                for (dst, (m, (t, f))) in destination_iter.zip(mask_iter.zip(true_values_iter.zip(false_values_iter))) {
+                destination_iter
+                    .zip(mask_iter.zip(true_values_iter.zip(false_values_iter)))
+                    .for_each(|(dst, (m, (t, f)))| {
                     let t = ptr::read(t);
                     let f = ptr::read(f);
                     let m = ptr::read(m);
@@ -59,7 +61,7 @@ where
                     ptr::write(dst, if m { t } else { f });
 
                     *destination_position += 1;
-                }
+                    });
             }
 
             NumericArray::new(destination.into_inner())

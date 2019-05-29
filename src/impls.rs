@@ -146,36 +146,36 @@ macro_rules! impl_assign_ops {
 
                         let (right_iter, right_position) = right.iter_position();
 
-                        for (lhs, rhs) in self.iter_mut().zip(right_iter) {
+                        self.iter_mut().zip(right_iter).for_each(|(lhs, rhs)| {
                             $op_trait::$op(lhs, ptr::read(rhs));
 
                             *right_position += 1;
+                        });
                         }
                     }
                 }
-            }
 
             impl<'a, T, U: Clone, N: ArrayLength<T> + ArrayLength<U>> $op_trait<&'a NumericArray<U, N>> for NumericArray<T, N>
             where
                 T: $op_trait<U>
             {
                 fn $op(&mut self, rhs: &'a NumericArray<U, N>) {
-                    for (lhs, rhs) in self.iter_mut().zip(rhs.iter()) {
+                    self.iter_mut().zip(rhs.iter()).for_each(|(lhs, rhs)| {
                         $op_trait::$op(lhs, rhs.clone());
+                    });
                     }
                 }
-            }
 
             impl<T, U: Clone, N: ArrayLength<T>> $op_trait<NumericConstant<U>> for NumericArray<T, N>
             where
                 T: $op_trait<U>
             {
                 fn $op(&mut self, rhs: NumericConstant<U>) {
-                    for lhs in self.iter_mut() {
+                    self.iter_mut().for_each(|lhs| {
                         $op_trait::$op(lhs, rhs.0.clone());
+                    });
                     }
                 }
-            }
         )*
     }
 }
@@ -703,7 +703,9 @@ where
             {
                 let (destination_iter, destination_position) = destination.iter_position();
 
-                for (dst, (l, (a, b))) in destination_iter.zip(left_iter.zip(a_arr_iter.zip(b_arr_iter))) {
+                destination_iter
+                    .zip(left_iter.zip(a_arr_iter.zip(b_arr_iter)))
+                    .for_each(|(dst, (l, (a, b)))| {
                     let l = ptr::read(l);
                     let a = ptr::read(a);
                     let b = ptr::read(b);
@@ -715,7 +717,7 @@ where
                     ptr::write(dst, Float::mul_add(l, a, b));
 
                     *destination_position += 1;
-                }
+                    });
             }
 
             NumericArray::new(destination.into_inner())
@@ -823,7 +825,10 @@ where
                 let (sin_destination_iter, sin_destination_position) = sin_destination.iter_position();
                 let (cos_destination_iter, cos_destination_position) = cos_destination.iter_position();
 
-                for ((sin, cos), src) in sin_destination_iter.zip(cos_destination_iter).zip(source_iter) {
+                sin_destination_iter
+                    .zip(cos_destination_iter)
+                    .zip(source_iter)
+                    .for_each(|((sin, cos), src)| {
                     let x = ptr::read(src);
 
                     *source_position += 1;
@@ -835,7 +840,7 @@ where
 
                     *sin_destination_position += 1;
                     *cos_destination_position += 1;
-                }
+                    });
             }
 
             (
