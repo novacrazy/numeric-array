@@ -304,12 +304,12 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
     ///
     /// ```ignore
     /// let a = NumericArray::new(arr![i32; 5, 5, 5, 5]);
-    /// let b = NumericArray::from_element(5);
+    /// let b = NumericArray::splat(5);
     ///
     /// assert_eq!(a, b);
     /// ```
     #[inline]
-    pub fn from_element(t: T) -> NumericArray<T, N>
+    pub fn splat(t: T) -> NumericArray<T, N>
     where
         T: Clone,
     {

@@ -406,7 +406,7 @@ where
     type FromStrRadixErr = <T as Num>::FromStrRadixErr;
 
     fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
-        <T as Num>::from_str_radix(str, radix).map(Self::from_element)
+        <T as Num>::from_str_radix(str, radix).map(Self::splat)
     }
 }
 
@@ -568,7 +568,7 @@ where
     T: NumCast + Clone,
 {
     fn from<P: ToPrimitive>(n: P) -> Option<Self> {
-        T::from(n).map(Self::from_element)
+        T::from(n).map(Self::splat)
     }
 }
 
@@ -579,37 +579,37 @@ where
 {
     #[inline]
     fn nan() -> Self {
-        Self::from_element(Float::nan())
+        Self::splat(Float::nan())
     }
 
     #[inline]
     fn infinity() -> Self {
-        Self::from_element(Float::infinity())
+        Self::splat(Float::infinity())
     }
 
     #[inline]
     fn neg_infinity() -> Self {
-        Self::from_element(Float::neg_infinity())
+        Self::splat(Float::neg_infinity())
     }
 
     #[inline]
     fn neg_zero() -> Self {
-        Self::from_element(Float::neg_zero())
+        Self::splat(Float::neg_zero())
     }
 
     #[inline]
     fn min_value() -> Self {
-        Self::from_element(Float::min_value())
+        Self::splat(Float::min_value())
     }
 
     #[inline]
     fn min_positive_value() -> Self {
-        Self::from_element(Float::min_positive_value())
+        Self::splat(Float::min_positive_value())
     }
 
     #[inline]
     fn max_value() -> Self {
-        Self::from_element(Float::max_value())
+        Self::splat(Float::max_value())
     }
 
     fn is_nan(self) -> bool {
@@ -887,7 +887,7 @@ where
 
     #[inline]
     fn epsilon() -> Self {
-        Self::from_element(Float::epsilon())
+        Self::splat(Float::epsilon())
     }
 
     fn to_degrees(self) -> Self {
