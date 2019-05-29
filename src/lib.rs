@@ -353,6 +353,23 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         &mut self.0
     }
+
+    /// Converts slice to a numeric array reference with inferred length;
+    ///
+    /// Length of the slice must be equal to the length of the array.
+    #[inline]
+    pub fn from_slice(slice: &[T]) -> &NumericArray<T, N> {
+        slice.into()
+    }
+
+    /// Converts mutable slice to a mutable numeric array reference
+    ///
+    /// Length of the slice must be equal to the length of the array.
+    #[inline]
+    pub fn from_mut_slice(slice: &mut [T]) -> &mut NumericArray<T, N> {
+        slice.into()
+    }
+}
 }
 
 impl<T, N: ArrayLength<T>> AsRef<[T]> for NumericArray<T, N> {
