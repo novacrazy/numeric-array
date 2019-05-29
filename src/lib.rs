@@ -48,8 +48,6 @@
 #![deny(missing_docs)]
 
 extern crate num_traits;
-
-#[cfg(test)]
 extern crate typenum;
 
 #[cfg_attr(test, macro_use)]
@@ -370,6 +368,54 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
         slice.into()
     }
 }
+
+use std::ops::Sub;
+use typenum::{bit::B1 as True, Diff, IsGreaterOrEqual};
+
+impl<T, N: ArrayLength<T>> NumericArray<T, N> {
+    /// Offset the numeric array and cast it into a shorter array
+    #[inline(always)]
+    pub fn offset<V: ArrayLength<T>, O: ArrayLength<T>>(&self) -> &NumericArray<T, V>
+    where
+        N: Sub<O>,
+        Diff<N, O>: IsGreaterOrEqual<V, Output = True>,
+    {
+        unsafe { &*((self as *const _ as *const T).add(O::USIZE) as *const NumericArray<T, V>) }
+    }
+
+    /// Offset the numeric array and cast it into a shorter array
+    #[inline(always)]
+    pub fn offset_mut<V: ArrayLength<T>, O: ArrayLength<T>>(&mut self) -> &mut NumericArray<T, V>
+    where
+        N: Sub<O>,
+        Diff<N, O>: IsGreaterOrEqual<V, Output = True>,
+    {
+        unsafe { &mut *((self as *mut _ as *mut T).add(O::USIZE) as *mut NumericArray<T, V>) }
+    }
+}
+
+impl<'a, T, N: ArrayLength<T>> From<&'a [T]> for &'a NumericArray<T, N> {
+    /// Converts slice to a numeric array reference with inferred length;
+    ///
+    /// Length of the slice must be equal to the length of the array.
+    #[inline]
+    fn from(slice: &[T]) -> &NumericArray<T, N> {
+        debug_assert_eq!(slice.len(), N::to_usize());
+
+        unsafe { &*(slice.as_ptr() as *const NumericArray<T, N>) }
+    }
+}
+
+impl<'a, T, N: ArrayLength<T>> From<&'a mut [T]> for &'a mut NumericArray<T, N> {
+    /// Converts mutable slice to a mutable numeric array reference
+    ///
+    /// Length of the slice must be equal to the length of the array.
+    #[inline]
+    fn from(slice: &mut [T]) -> &mut NumericArray<T, N> {
+        debug_assert_eq!(slice.len(), N::to_usize());
+
+        unsafe { &mut *(slice.as_mut_ptr() as *mut NumericArray<T, N>) }
+    }
 }
 
 impl<T, N: ArrayLength<T>> AsRef<[T]> for NumericArray<T, N> {
