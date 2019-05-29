@@ -151,9 +151,9 @@ macro_rules! impl_assign_ops {
 
                             *right_position += 1;
                         });
-                        }
                     }
                 }
+            }
 
             impl<'a, T, U: Clone, N: ArrayLength<T> + ArrayLength<U>> $op_trait<&'a NumericArray<U, N>> for NumericArray<T, N>
             where
@@ -163,8 +163,8 @@ macro_rules! impl_assign_ops {
                     self.iter_mut().zip(rhs.iter()).for_each(|(lhs, rhs)| {
                         $op_trait::$op(lhs, rhs.clone());
                     });
-                    }
                 }
+            }
 
             impl<T, U: Clone, N: ArrayLength<T>> $op_trait<NumericConstant<U>> for NumericArray<T, N>
             where
@@ -174,8 +174,8 @@ macro_rules! impl_assign_ops {
                     self.iter_mut().for_each(|lhs| {
                         $op_trait::$op(lhs, rhs.0.clone());
                     });
-                    }
                 }
+            }
         )*
     }
 }
@@ -450,117 +450,41 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> ToPrimitive for NumericArray<T, N>
-where
-    T: ToPrimitive,
-{
-    #[inline]
-    fn to_i64(&self) -> Option<i64> {
-        if N::to_usize() == 0 {
-            None
-        } else {
-            self.first().and_then(|x| x.to_i64())
+macro_rules! impl_to_primitive {
+    ($($to:ident => $prim:ty),*) => {
+        impl<T, N: ArrayLength<T>> ToPrimitive for NumericArray<T, N>
+        where
+            T: ToPrimitive,
+        {
+            $(
+                #[inline]
+                fn $to(&self) -> Option<$prim> {
+                    if N::to_usize() == 0 { None } else {
+                        self.first().and_then(ToPrimitive::$to)
+                    }
+                }
+            )*
         }
     }
+}
 
-    #[inline]
-    fn to_u64(&self) -> Option<u64> {
-        if N::to_usize() == 0 {
-            None
-        } else {
-            self.first().and_then(|x| x.to_u64())
-        }
-    }
+impl_to_primitive! {
+    to_i8       => i8,
+    to_i16      => i16,
+    to_i32      => i32,
+    to_i64      => i64,
+    to_i128     => i128,
+    to_isize    => isize,
 
-    #[inline]
-    fn to_isize(&self) -> Option<isize> {
-        if N::to_usize() == 0 {
-            None
-        } else {
-            self.first().and_then(|x| x.to_isize())
-        }
-    }
+    to_u8       => u8,
+    to_u16      => u16,
+    to_u32      => u32,
+    to_u64      => u64,
+    to_u128     => u128,
+    to_usize    => usize,
 
-    #[inline]
-    fn to_i8(&self) -> Option<i8> {
-        if N::to_usize() == 0 {
-            None
-        } else {
-            self.first().and_then(|x| x.to_i8())
-        }
-    }
-
-    #[inline]
-    fn to_i16(&self) -> Option<i16> {
-        if N::to_usize() == 0 {
-            None
-        } else {
-            self.first().and_then(|x| x.to_i16())
-        }
-    }
-
-    #[inline]
-    fn to_i32(&self) -> Option<i32> {
-        if N::to_usize() == 0 {
-            None
-        } else {
-            self.first().and_then(|x| x.to_i32())
-        }
-    }
-
-    #[inline]
-    fn to_usize(&self) -> Option<usize> {
-        if N::to_usize() == 0 {
-            None
-        } else {
-            self.first().and_then(|x| x.to_usize())
-        }
-    }
-
-    #[inline]
-    fn to_u8(&self) -> Option<u8> {
-        if N::to_usize() == 0 {
-            None
-        } else {
-            self.first().and_then(|x| x.to_u8())
-        }
-    }
-
-    #[inline]
-    fn to_u16(&self) -> Option<u16> {
-        if N::to_usize() == 0 {
-            None
-        } else {
-            self.first().and_then(|x| x.to_u16())
-        }
-    }
-
-    #[inline]
-    fn to_u32(&self) -> Option<u32> {
-        if N::to_usize() == 0 {
-            None
-        } else {
-            self.first().and_then(|x| x.to_u32())
-        }
-    }
-
-    #[inline]
-    fn to_f32(&self) -> Option<f32> {
-        if N::to_usize() == 0 {
-            None
-        } else {
-            self.first().and_then(|x| x.to_f32())
-        }
-    }
-
-    #[inline]
-    fn to_f64(&self) -> Option<f64> {
-        if N::to_usize() == 0 {
-            None
-        } else {
-            self.first().and_then(|x| x.to_f64())
-        }
-    }
+    to_f32      => f32,
+    to_f64      => f64
 }
 
 impl<T, N: ArrayLength<T>> NumCast for NumericArray<T, N>
@@ -706,17 +630,17 @@ where
                 destination_iter
                     .zip(left_iter.zip(a_arr_iter.zip(b_arr_iter)))
                     .for_each(|(dst, (l, (a, b)))| {
-                    let l = ptr::read(l);
-                    let a = ptr::read(a);
-                    let b = ptr::read(b);
+                        let l = ptr::read(l);
+                        let a = ptr::read(a);
+                        let b = ptr::read(b);
 
-                    *left_position += 1;
-                    *a_arr_position += 1;
-                    *b_arr_position += 1;
+                        *left_position += 1;
+                        *a_arr_position += 1;
+                        *b_arr_position += 1;
 
-                    ptr::write(dst, Float::mul_add(l, a, b));
+                        ptr::write(dst, Float::mul_add(l, a, b));
 
-                    *destination_position += 1;
+                        *destination_position += 1;
                     });
             }
 
@@ -829,17 +753,17 @@ where
                     .zip(cos_destination_iter)
                     .zip(source_iter)
                     .for_each(|((sin, cos), src)| {
-                    let x = ptr::read(src);
+                        let x = ptr::read(src);
 
-                    *source_position += 1;
+                        *source_position += 1;
 
-                    let (s, c) = Float::sin_cos(x);
+                        let (s, c) = Float::sin_cos(x);
 
-                    ptr::write(sin, s);
-                    ptr::write(cos, c);
+                        ptr::write(sin, s);
+                        ptr::write(cos, c);
 
-                    *sin_destination_position += 1;
-                    *cos_destination_position += 1;
+                        *sin_destination_position += 1;
+                        *cos_destination_position += 1;
                     });
             }
 
