@@ -42,7 +42,10 @@ impl<T: Serialize> Serialize for NumericConstant<T> {
 
 impl<'de, T: Deserialize<'de>> Deserialize<'de> for NumericConstant<T> {
     #[inline]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         T::deserialize(deserializer).map(NumericConstant)
     }
 }
