@@ -86,7 +86,7 @@ pub mod simd;
 ///
 /// For example, adding together four-element `NumericArray`'s will result
 /// in a single SIMD instruction for all elements at once.
-#[repr(C)]
+#[repr(transparent)]
 pub struct NumericArray<T, N: ArrayLength<T>>(GenericArray<T, N>);
 
 /// Sugar for `NumericArray::new(arr![...])`
