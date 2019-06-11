@@ -122,6 +122,7 @@ unsafe impl<T, N: ArrayLength<T>> GenericSequence<T> for NumericArray<T, N> {
 /// As a result, constants must be wrapped in this totally
 /// transparent wrapper type to differentiate the types to Rust.
 #[derive(Debug, Clone, Copy)]
+#[repr(transparent)]
 pub struct NumericConstant<T>(pub T);
 
 /// Creates a new `NumericConstant` from the given expression.
