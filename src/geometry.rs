@@ -22,7 +22,9 @@ where
 {
     #[inline(always)]
     fn scalar_product(&self, other: &Self) -> T {
-        (self * other).0.fold(T::zero(), Add::add)
+        self.iter().zip(&other.0).fold(T::zero(), |sum, (l, r)| {
+            sum + (*l * *r)
+        })
     }
 
     #[inline(always)]
@@ -30,7 +32,9 @@ where
     where
         T: Signed,
     {
-        (self * other).0.fold(T::zero(), |sum, x| sum + x.abs())
+        self.iter().zip(&other.0).fold(T::zero(), |sum, (l, r)| {
+            sum + (*l * *r).abs()
+        })
     }
 
     #[inline(always)]
