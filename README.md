@@ -3,7 +3,7 @@ numeric-array
 
 `numeric-array` is a wrapper around [`generic-array`](https://github.com/fizyk20/generic-array) that adds efficient numeric trait implementations, often times making use of SIMD instructions and compile-time evaluations.
 
-All stable `std::ops` traits are implemented for `NumericArray` itself, plus the thin `NumericConstant` type, which is required to differeniate constant values from `NumericArray` itself.
+All stable `core::ops` traits are implemented for `NumericArray` itself, plus the thin `NumericConstant` type, which is required to differeniate constant values from `NumericArray` itself.
 
 Additionally, most of `num_traits` are implemented, including `Num` itself. So you can even use a whole array as a generic number.
 

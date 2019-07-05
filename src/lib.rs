@@ -3,7 +3,7 @@
 //! efficient numeric trait implementations, often times making use of
 //! SIMD instructions and compile-time evaluations.
 //!
-//! All stable `std::ops` traits are implemented for `NumericArray` itself,
+//! All stable `core::ops` traits are implemented for `NumericArray` itself,
 //! plus the thin `NumericConstant` type, which is required to
 //! differeniate constant values from `NumericArray` itself.
 //!
@@ -46,6 +46,7 @@
 //!
 
 #![deny(missing_docs)]
+#![no_std]
 
 extern crate num_traits;
 extern crate typenum;
@@ -56,15 +57,15 @@ extern crate generic_array;
 #[cfg(feature = "serde1")]
 extern crate serde;
 
-use std::{cmp, ptr, slice};
+use core::{cmp, ptr, slice};
 
-use std::borrow::{Borrow, BorrowMut};
-use std::ops::{Deref, DerefMut, Index, IndexMut};
-use std::ops::{Range, RangeFrom, RangeFull, RangeTo};
+use core::borrow::{Borrow, BorrowMut};
+use core::ops::{Deref, DerefMut, Index, IndexMut};
+use core::ops::{Range, RangeFrom, RangeFull, RangeTo};
 
-use std::iter::FromIterator;
+use core::iter::FromIterator;
 
-use std::fmt::{Debug, Formatter, Result as FmtResult};
+use core::fmt::{Debug, Formatter, Result as FmtResult};
 
 use generic_array::functional::*;
 use generic_array::sequence::*;
@@ -370,7 +371,7 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
     }
 }
 
-use std::ops::Sub;
+use core::ops::Sub;
 use typenum::{bit::B1 as True, Diff, IsGreaterOrEqual};
 
 impl<T, N: ArrayLength<T>> NumericArray<T, N> {
@@ -547,7 +548,7 @@ pub mod tests {
     // This stops the compiler from optimizing based on known data, only data types.
     #[inline(never)]
     pub fn black_box<T>(val: T) -> T {
-        use std::{mem, ptr};
+        use core::{mem, ptr};
 
         let ret = unsafe { ptr::read_volatile(&val) };
         mem::forget(val);
@@ -613,7 +614,7 @@ pub mod tests {
     #[test]
     fn test_classify() {
         use num_traits::Float;
-        use std::num::FpCategory;
+        use core::num::FpCategory;
 
         let nan = f32::nan();
         let infinity = f32::infinity();
@@ -647,9 +648,7 @@ pub mod tests {
 
         let a = black_box(narr![f32; 1, 2, 3, 4]);
 
-        let b = a.tanh();
-
-        println!("{:?}", b);
+        black_box(a.tanh());
     }
 
     #[test]

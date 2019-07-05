@@ -18,8 +18,8 @@
 
 use super::*;
 
-use std::num::FpCategory;
-use std::ops::*;
+use core::num::FpCategory;
+use core::ops::*;
 
 use num_traits::*;
 
