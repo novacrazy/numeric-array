@@ -1,6 +1,6 @@
 #![allow(missing_docs)]
 
-use std::ops::{Add, Mul};
+use core::ops::{Add, Mul};
 
 use num_traits::{Signed, Zero};
 
