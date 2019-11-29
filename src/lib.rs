@@ -469,12 +469,26 @@ impl<T, N: ArrayLength<T>> Index<Range<usize>> for NumericArray<T, N> {
     }
 }
 
+impl<T, N: ArrayLength<T>> IndexMut<Range<usize>> for NumericArray<T, N> {
+    #[inline(always)]
+    fn index_mut(&mut self, index: Range<usize>) -> &mut [T] {
+        self.0.index_mut(index)
+    }
+}
+
 impl<T, N: ArrayLength<T>> Index<RangeTo<usize>> for NumericArray<T, N> {
     type Output = [T];
 
     #[inline(always)]
     fn index(&self, index: RangeTo<usize>) -> &[T] {
         self.0.index(index)
+    }
+}
+
+impl<T, N: ArrayLength<T>> IndexMut<RangeTo<usize>> for NumericArray<T, N> {
+    #[inline(always)]
+    fn index_mut(&mut self, index: RangeTo<usize>) -> &mut [T] {
+        self.0.index_mut(index)
     }
 }
 
@@ -487,11 +501,25 @@ impl<T, N: ArrayLength<T>> Index<RangeFrom<usize>> for NumericArray<T, N> {
     }
 }
 
+impl<T, N: ArrayLength<T>> IndexMut<RangeFrom<usize>> for NumericArray<T, N> {
+    #[inline(always)]
+    fn index_mut(&mut self, index: RangeFrom<usize>) -> &mut [T] {
+        self.0.index_mut(index)
+    }
+}
+
 impl<T, N: ArrayLength<T>> Index<RangeFull> for NumericArray<T, N> {
     type Output = [T];
 
     #[inline(always)]
     fn index(&self, _index: RangeFull) -> &[T] {
+        self
+    }
+}
+
+impl<T, N: ArrayLength<T>> IndexMut<RangeFull> for NumericArray<T, N> {
+    #[inline(always)]
+    fn index_mut(&mut self, _index: RangeFull) -> &mut [T] {
         self
     }
 }
@@ -613,8 +641,8 @@ pub mod tests {
 
     #[test]
     fn test_classify() {
-        use num_traits::Float;
         use core::num::FpCategory;
+        use num_traits::Float;
 
         let nan = f32::nan();
         let infinity = f32::infinity();
