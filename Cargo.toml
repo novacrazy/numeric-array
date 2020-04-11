@@ -4,7 +4,7 @@ name = "numeric-array"
 description = "Wrapper around generic-array that adds efficient numeric trait implementations"
 repository = "https://github.com/novacrazy/numeric-array"
 documentation = "https://docs.rs/numeric-array"
-version = "0.4.2"
+version = "0.5.0"
 readme = "README.md"
 keywords = ["generic", "array", "numeric", "simd"]
 include = ["src/**/*", "Cargo.toml"]
@@ -12,7 +12,7 @@ license = "MIT"
 categories = ["data-structures"]
 
 [dependencies]
-generic-array = "0.13"
+generic-array = "0.14.1"
 num-traits = "0.2.10"
 typenum = "1.10"
 serde = { version = "1.0.85", optional = true, default_features = false }
