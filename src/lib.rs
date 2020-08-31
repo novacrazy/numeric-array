@@ -49,10 +49,11 @@
 #![no_std]
 
 extern crate num_traits;
-extern crate typenum;
 
 #[cfg_attr(test, macro_use)]
 extern crate generic_array;
+
+pub use generic_array::typenum;
 
 #[cfg(feature = "serde1")]
 extern crate serde;
