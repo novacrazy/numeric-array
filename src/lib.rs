@@ -53,7 +53,7 @@ extern crate num_traits;
 #[cfg_attr(test, macro_use)]
 extern crate generic_array;
 
-pub use generic_array::typenum;
+pub use generic_array::{typenum, ArrayLength};
 
 #[cfg(feature = "serde1")]
 extern crate serde;
@@ -70,7 +70,7 @@ use core::fmt::{Debug, Formatter, Result as FmtResult};
 
 use generic_array::functional::*;
 use generic_array::sequence::*;
-use generic_array::{ArrayLength, GenericArray, GenericArrayIter};
+use generic_array::{GenericArray, GenericArrayIter};
 
 #[cfg(feature = "serde1")]
 mod impl_serde;
