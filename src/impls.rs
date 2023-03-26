@@ -150,7 +150,7 @@ macro_rules! impl_binary_ops {
 macro_rules! impl_assign_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
-            impl<T, U, N: ArrayLength + ArrayLength> $op_trait<NumericArray<U, N>> for NumericArray<T, N>
+            impl<T, U, N: ArrayLength> $op_trait<NumericArray<U, N>> for NumericArray<T, N>
             where
                 T: $op_trait<U>,
             {
@@ -169,7 +169,7 @@ macro_rules! impl_assign_ops {
                 }
             }
 
-            impl<'a, T, U: Clone, N: ArrayLength + ArrayLength> $op_trait<&'a NumericArray<U, N>> for NumericArray<T, N>
+            impl<'a, T, U: Clone, N: ArrayLength> $op_trait<&'a NumericArray<U, N>> for NumericArray<T, N>
             where
                 T: $op_trait<U>,
             {
