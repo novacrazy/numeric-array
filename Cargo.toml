@@ -12,7 +12,7 @@ license = "MIT"
 categories = ["data-structures"]
 
 [dependencies]
-generic-array = "0.14.4"
+generic-array = "1.0"
 num-traits = "0.2"
 serde = { version = "1.0", optional = true, default_features = false }
 

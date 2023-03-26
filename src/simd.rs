@@ -7,7 +7,7 @@ use super::*;
 use generic_array::{ArrayBuilder, ArrayConsumer};
 
 /// Selects elements from one array or another using `self` as a mask.
-pub unsafe trait Select<T, N: ArrayLength<T>> {
+pub unsafe trait Select<T, N: ArrayLength> {
     /// Selects elements from one array or another using `self` as a mask.
     ///
     /// Example:
@@ -29,14 +29,13 @@ pub unsafe trait Select<T, N: ArrayLength<T>> {
 }
 
 /// Rearranges one numeric array into another using the supplied indices
-pub unsafe trait Permute<T, N: ArrayLength<T>> {
+pub unsafe trait Permute<T, N: ArrayLength> {
     /// Performs the permutation
     fn permute(self, values: &NumericArray<T, N>) -> NumericArray<T, N>;
 }
 
-unsafe impl<T, N: ArrayLength<T>> Permute<T, N> for NumericArray<usize, N>
+unsafe impl<T, N: ArrayLength> Permute<T, N> for NumericArray<usize, N>
 where
-    N: ArrayLength<usize>,
     T: Clone,
 {
     fn permute(self, values: &NumericArray<T, N>) -> NumericArray<T, N> {
@@ -66,10 +65,7 @@ where
     }
 }
 
-unsafe impl<T, N: ArrayLength<T>> Select<T, N> for NumericArray<bool, N>
-where
-    N: ArrayLength<bool>,
-{
+unsafe impl<T, N: ArrayLength> Select<T, N> for NumericArray<bool, N> {
     fn select(self, true_values: NumericArray<T, N>, false_values: NumericArray<T, N>) -> NumericArray<T, N> {
         unsafe {
             let mut mask = ArrayConsumer::new(self.0);

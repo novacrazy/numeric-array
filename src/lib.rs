@@ -88,7 +88,7 @@ pub mod simd;
 /// For example, adding together four-element `NumericArray`'s will result
 /// in a single SIMD instruction for all elements at once.
 #[repr(transparent)]
-pub struct NumericArray<T, N: ArrayLength<T>>(GenericArray<T, N>);
+pub struct NumericArray<T, N: ArrayLength>(GenericArray<T, N>);
 
 /// Sugar for `NumericArray::new(arr![...])`
 ///
@@ -105,7 +105,7 @@ macro_rules! narr {
     }
 }
 
-unsafe impl<T, N: ArrayLength<T>> GenericSequence<T> for NumericArray<T, N> {
+unsafe impl<T, N: ArrayLength> GenericSequence<T> for NumericArray<T, N> {
     type Length = N;
     type Sequence = Self;
 
@@ -149,13 +149,13 @@ impl<T> DerefMut for NumericConstant<T> {
     }
 }
 
-impl<T: Debug, N: ArrayLength<T>> Debug for NumericArray<T, N> {
+impl<T: Debug, N: ArrayLength> Debug for NumericArray<T, N> {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         f.debug_tuple("NumericArray").field(&self.0).finish()
     }
 }
 
-impl<X, T, N: ArrayLength<T>> From<X> for NumericArray<T, N>
+impl<X, T, N: ArrayLength> From<X> for NumericArray<T, N>
 where
     X: Into<GenericArray<T, N>>,
 {
@@ -164,15 +164,15 @@ where
     }
 }
 
-impl<T: Clone, N: ArrayLength<T>> Clone for NumericArray<T, N> {
+impl<T: Clone, N: ArrayLength> Clone for NumericArray<T, N> {
     fn clone(&self) -> NumericArray<T, N> {
         NumericArray(self.0.clone())
     }
 }
 
-impl<T: Copy, N: ArrayLength<T>> Copy for NumericArray<T, N> where N::ArrayType: Copy {}
+impl<T: Copy, N: ArrayLength> Copy for NumericArray<T, N> where N::ArrayType<T>: Copy {}
 
-impl<T, N: ArrayLength<T>> Deref for NumericArray<T, N> {
+impl<T, N: ArrayLength> Deref for NumericArray<T, N> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
@@ -180,13 +180,13 @@ impl<T, N: ArrayLength<T>> Deref for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> DerefMut for NumericArray<T, N> {
+impl<T, N: ArrayLength> DerefMut for NumericArray<T, N> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
     }
 }
 
-impl<T, U, N: ArrayLength<T> + ArrayLength<U>> PartialEq<NumericArray<U, N>> for NumericArray<T, N>
+impl<T, U, N: ArrayLength> PartialEq<NumericArray<U, N>> for NumericArray<T, N>
 where
     T: PartialEq<U>,
 {
@@ -195,7 +195,7 @@ where
     }
 }
 
-impl<T, U, N: ArrayLength<T> + ArrayLength<U>> PartialEq<GenericArray<U, N>> for NumericArray<T, N>
+impl<T, U, N: ArrayLength> PartialEq<GenericArray<U, N>> for NumericArray<T, N>
 where
     T: PartialEq<U>,
 {
@@ -204,9 +204,9 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> cmp::Eq for NumericArray<T, N> where T: cmp::Eq {}
+impl<T, N: ArrayLength> cmp::Eq for NumericArray<T, N> where T: cmp::Eq {}
 
-impl<T, N: ArrayLength<T>> PartialOrd<Self> for NumericArray<T, N>
+impl<T, N: ArrayLength> PartialOrd<Self> for NumericArray<T, N>
 where
     T: PartialOrd,
 {
@@ -236,7 +236,7 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> PartialOrd<GenericArray<T, N>> for NumericArray<T, N>
+impl<T, N: ArrayLength> PartialOrd<GenericArray<T, N>> for NumericArray<T, N>
 where
     T: PartialOrd,
 {
@@ -266,7 +266,7 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> cmp::Ord for NumericArray<T, N>
+impl<T, N: ArrayLength> cmp::Ord for NumericArray<T, N>
 where
     T: cmp::Ord,
 {
@@ -276,7 +276,7 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> NumericArray<T, N> {
+impl<T, N: ArrayLength> NumericArray<T, N> {
     /// Creates a new `NumericArray` instance from a `GenericArray` instance.
     ///
     /// Example:
@@ -318,10 +318,7 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
     }
 
     /// Convert all elements of the `NumericArray` to another `NumericArray` using `From`
-    pub fn convert<U: From<T>>(self) -> NumericArray<U, N>
-    where
-        N: ArrayLength<U>,
-    {
+    pub fn convert<U: From<T>>(self) -> NumericArray<U, N> {
         self.0.map(From::from).into()
     }
 
@@ -375,10 +372,10 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
 use core::ops::Sub;
 use typenum::{bit::B1 as True, Diff, IsGreaterOrEqual};
 
-impl<T, N: ArrayLength<T>> NumericArray<T, N> {
+impl<T, N: ArrayLength> NumericArray<T, N> {
     /// Offset the numeric array and cast it into a shorter array
     #[inline(always)]
-    pub fn offset<V: ArrayLength<T>, O: ArrayLength<T>>(&self) -> &NumericArray<T, V>
+    pub fn offset<V: ArrayLength, O: ArrayLength>(&self) -> &NumericArray<T, V>
     where
         N: Sub<O>,
         Diff<N, O>: IsGreaterOrEqual<V, Output = True>,
@@ -388,7 +385,7 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
 
     /// Offset the numeric array and cast it into a shorter array
     #[inline(always)]
-    pub fn offset_mut<V: ArrayLength<T>, O: ArrayLength<T>>(&mut self) -> &mut NumericArray<T, V>
+    pub fn offset_mut<V: ArrayLength, O: ArrayLength>(&mut self) -> &mut NumericArray<T, V>
     where
         N: Sub<O>,
         Diff<N, O>: IsGreaterOrEqual<V, Output = True>,
@@ -397,7 +394,7 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
     }
 }
 
-impl<'a, T, N: ArrayLength<T>> From<&'a [T]> for &'a NumericArray<T, N> {
+impl<'a, T, N: ArrayLength> From<&'a [T]> for &'a NumericArray<T, N> {
     /// Converts slice to a numeric array reference with inferred length;
     ///
     /// Length of the slice must be equal to the length of the array.
@@ -409,7 +406,7 @@ impl<'a, T, N: ArrayLength<T>> From<&'a [T]> for &'a NumericArray<T, N> {
     }
 }
 
-impl<'a, T, N: ArrayLength<T>> From<&'a mut [T]> for &'a mut NumericArray<T, N> {
+impl<'a, T, N: ArrayLength> From<&'a mut [T]> for &'a mut NumericArray<T, N> {
     /// Converts mutable slice to a mutable numeric array reference
     ///
     /// Length of the slice must be equal to the length of the array.
@@ -421,31 +418,31 @@ impl<'a, T, N: ArrayLength<T>> From<&'a mut [T]> for &'a mut NumericArray<T, N> 
     }
 }
 
-impl<T, N: ArrayLength<T>> AsRef<[T]> for NumericArray<T, N> {
+impl<T, N: ArrayLength> AsRef<[T]> for NumericArray<T, N> {
     fn as_ref(&self) -> &[T] {
         self
     }
 }
 
-impl<T, N: ArrayLength<T>> Borrow<[T]> for NumericArray<T, N> {
+impl<T, N: ArrayLength> Borrow<[T]> for NumericArray<T, N> {
     fn borrow(&self) -> &[T] {
         self
     }
 }
 
-impl<T, N: ArrayLength<T>> AsMut<[T]> for NumericArray<T, N> {
+impl<T, N: ArrayLength> AsMut<[T]> for NumericArray<T, N> {
     fn as_mut(&mut self) -> &mut [T] {
         self
     }
 }
 
-impl<T, N: ArrayLength<T>> BorrowMut<[T]> for NumericArray<T, N> {
+impl<T, N: ArrayLength> BorrowMut<[T]> for NumericArray<T, N> {
     fn borrow_mut(&mut self) -> &mut [T] {
         self
     }
 }
 
-impl<T, N: ArrayLength<T>> Index<usize> for NumericArray<T, N> {
+impl<T, N: ArrayLength> Index<usize> for NumericArray<T, N> {
     type Output = T;
 
     #[inline(always)]
@@ -454,14 +451,14 @@ impl<T, N: ArrayLength<T>> Index<usize> for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> IndexMut<usize> for NumericArray<T, N> {
+impl<T, N: ArrayLength> IndexMut<usize> for NumericArray<T, N> {
     #[inline(always)]
     fn index_mut(&mut self, index: usize) -> &mut T {
         self.0.index_mut(index)
     }
 }
 
-impl<T, N: ArrayLength<T>> Index<Range<usize>> for NumericArray<T, N> {
+impl<T, N: ArrayLength> Index<Range<usize>> for NumericArray<T, N> {
     type Output = [T];
 
     #[inline(always)]
@@ -470,14 +467,14 @@ impl<T, N: ArrayLength<T>> Index<Range<usize>> for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> IndexMut<Range<usize>> for NumericArray<T, N> {
+impl<T, N: ArrayLength> IndexMut<Range<usize>> for NumericArray<T, N> {
     #[inline(always)]
     fn index_mut(&mut self, index: Range<usize>) -> &mut [T] {
         self.0.index_mut(index)
     }
 }
 
-impl<T, N: ArrayLength<T>> Index<RangeTo<usize>> for NumericArray<T, N> {
+impl<T, N: ArrayLength> Index<RangeTo<usize>> for NumericArray<T, N> {
     type Output = [T];
 
     #[inline(always)]
@@ -486,14 +483,14 @@ impl<T, N: ArrayLength<T>> Index<RangeTo<usize>> for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> IndexMut<RangeTo<usize>> for NumericArray<T, N> {
+impl<T, N: ArrayLength> IndexMut<RangeTo<usize>> for NumericArray<T, N> {
     #[inline(always)]
     fn index_mut(&mut self, index: RangeTo<usize>) -> &mut [T] {
         self.0.index_mut(index)
     }
 }
 
-impl<T, N: ArrayLength<T>> Index<RangeFrom<usize>> for NumericArray<T, N> {
+impl<T, N: ArrayLength> Index<RangeFrom<usize>> for NumericArray<T, N> {
     type Output = [T];
 
     #[inline(always)]
@@ -502,14 +499,14 @@ impl<T, N: ArrayLength<T>> Index<RangeFrom<usize>> for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> IndexMut<RangeFrom<usize>> for NumericArray<T, N> {
+impl<T, N: ArrayLength> IndexMut<RangeFrom<usize>> for NumericArray<T, N> {
     #[inline(always)]
     fn index_mut(&mut self, index: RangeFrom<usize>) -> &mut [T] {
         self.0.index_mut(index)
     }
 }
 
-impl<T, N: ArrayLength<T>> Index<RangeFull> for NumericArray<T, N> {
+impl<T, N: ArrayLength> Index<RangeFull> for NumericArray<T, N> {
     type Output = [T];
 
     #[inline(always)]
@@ -518,14 +515,14 @@ impl<T, N: ArrayLength<T>> Index<RangeFull> for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> IndexMut<RangeFull> for NumericArray<T, N> {
+impl<T, N: ArrayLength> IndexMut<RangeFull> for NumericArray<T, N> {
     #[inline(always)]
     fn index_mut(&mut self, _index: RangeFull) -> &mut [T] {
         self
     }
 }
 
-impl<'a, T, N: ArrayLength<T>> IntoIterator for &'a NumericArray<T, N> {
+impl<'a, T, N: ArrayLength> IntoIterator for &'a NumericArray<T, N> {
     type Item = &'a T;
     type IntoIter = slice::Iter<'a, T>;
 
@@ -535,7 +532,7 @@ impl<'a, T, N: ArrayLength<T>> IntoIterator for &'a NumericArray<T, N> {
     }
 }
 
-impl<'a, T, N: ArrayLength<T>> IntoIterator for &'a mut NumericArray<T, N> {
+impl<'a, T, N: ArrayLength> IntoIterator for &'a mut NumericArray<T, N> {
     type Item = &'a mut T;
     type IntoIter = slice::IterMut<'a, T>;
 
@@ -545,7 +542,7 @@ impl<'a, T, N: ArrayLength<T>> IntoIterator for &'a mut NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> IntoIterator for NumericArray<T, N> {
+impl<T, N: ArrayLength> IntoIterator for NumericArray<T, N> {
     type Item = T;
     type IntoIter = GenericArrayIter<T, N>;
 
@@ -554,7 +551,7 @@ impl<T, N: ArrayLength<T>> IntoIterator for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> FromIterator<T> for NumericArray<T, N> {
+impl<T, N: ArrayLength> FromIterator<T> for NumericArray<T, N> {
     fn from_iter<I>(iter: I) -> Self
     where
         I: IntoIterator<Item = T>,
@@ -563,7 +560,7 @@ impl<T, N: ArrayLength<T>> FromIterator<T> for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> Default for NumericArray<T, N>
+impl<T, N: ArrayLength> Default for NumericArray<T, N>
 where
     T: Default,
 {

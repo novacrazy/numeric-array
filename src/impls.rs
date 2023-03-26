@@ -28,10 +28,9 @@ use generic_array::{ArrayBuilder, ArrayConsumer};
 macro_rules! impl_unary_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
-            impl<T, N: ArrayLength<T>> $op_trait for NumericArray<T, N>
+            impl<T, N: ArrayLength> $op_trait for NumericArray<T, N>
             where
                 T: $op_trait,
-                N: ArrayLength<<T as $op_trait>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait>::Output, N>;
 
@@ -40,10 +39,9 @@ macro_rules! impl_unary_ops {
                 }
             }
 
-            impl<'a, T: Clone, N: ArrayLength<T>> $op_trait for &'a NumericArray<T, N>
+            impl<'a, T: Clone, N: ArrayLength> $op_trait for &'a NumericArray<T, N>
             where
                 T: $op_trait,
-                N: ArrayLength<<T as $op_trait>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait>::Output, N>;
 
@@ -58,10 +56,9 @@ macro_rules! impl_unary_ops {
 macro_rules! impl_binary_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
-            impl<T, U, N: ArrayLength<T> + ArrayLength<U>> $op_trait<NumericArray<U, N>> for NumericArray<T, N>
+            impl<T, U, N: ArrayLength> $op_trait<NumericArray<U, N>> for NumericArray<T, N>
             where
                 T: $op_trait<U>,
-                N: ArrayLength<<T as $op_trait<U>>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait<U>>::Output, N>;
 
@@ -70,10 +67,9 @@ macro_rules! impl_binary_ops {
                 }
             }
 
-            impl<'a, T, U: Clone, N: ArrayLength<T> + ArrayLength<U>> $op_trait<&'a NumericArray<U, N>> for NumericArray<T, N>
+            impl<'a, T, U: Clone, N: ArrayLength> $op_trait<&'a NumericArray<U, N>> for NumericArray<T, N>
             where
                 T: $op_trait<U>,
-                N: ArrayLength<<T as $op_trait<U>>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait<U>>::Output, N>;
 
@@ -82,10 +78,9 @@ macro_rules! impl_binary_ops {
                 }
             }
 
-            impl<'a, T: Clone, U, N: ArrayLength<T> + ArrayLength<U>> $op_trait<NumericArray<U, N>> for &'a NumericArray<T, N>
+            impl<'a, T: Clone, U, N: ArrayLength> $op_trait<NumericArray<U, N>> for &'a NumericArray<T, N>
             where
                 T: $op_trait<U>,
-                N: ArrayLength<<T as $op_trait<U>>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait<U>>::Output, N>;
 
@@ -94,10 +89,9 @@ macro_rules! impl_binary_ops {
                 }
             }
 
-            impl<'a, 'b, T: Clone, U: Clone, N: ArrayLength<T> + ArrayLength<U>> $op_trait<&'b NumericArray<U, N>> for &'a NumericArray<T, N>
+            impl<'a, 'b, T: Clone, U: Clone, N: ArrayLength> $op_trait<&'b NumericArray<U, N>> for &'a NumericArray<T, N>
             where
                 T: $op_trait<U>,
-                N: ArrayLength<<T as $op_trait<U>>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait<U>>::Output, N>;
 
@@ -106,10 +100,9 @@ macro_rules! impl_binary_ops {
                 }
             }
 
-            impl<T, U: Clone, N: ArrayLength<T>> $op_trait<NumericConstant<U>> for NumericArray<T, N>
+            impl<T, U: Clone, N: ArrayLength> $op_trait<NumericConstant<U>> for NumericArray<T, N>
             where
                 T: $op_trait<U>,
-                N: ArrayLength<<T as $op_trait<U>>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait<U>>::Output, N>;
 
@@ -118,10 +111,9 @@ macro_rules! impl_binary_ops {
                 }
             }
 
-            impl<'a, T: Clone, U: Clone, N: ArrayLength<T>> $op_trait<NumericConstant<U>> for &'a NumericArray<T, N>
+            impl<'a, T: Clone, U: Clone, N: ArrayLength> $op_trait<NumericConstant<U>> for &'a NumericArray<T, N>
             where
                 T: $op_trait<U>,
-                N: ArrayLength<<T as $op_trait<U>>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait<U>>::Output, N>;
 
@@ -130,10 +122,9 @@ macro_rules! impl_binary_ops {
                 }
             }
 
-            impl<T, U: Clone, N: ArrayLength<T>> $op_trait<NumericArray<T, N>> for NumericConstant<U>
+            impl<T, U: Clone, N: ArrayLength> $op_trait<NumericArray<T, N>> for NumericConstant<U>
             where
                 U: $op_trait<T>,
-                N: ArrayLength<<U as $op_trait<T>>::Output>,
             {
                 type Output = NumericArray<<U as $op_trait<T>>::Output, N>;
 
@@ -142,10 +133,9 @@ macro_rules! impl_binary_ops {
                 }
             }
 
-            impl<'a, T: Clone, U: Clone, N: ArrayLength<T>> $op_trait<&'a NumericArray<T, N>> for NumericConstant<U>
+            impl<'a, T: Clone, U: Clone, N: ArrayLength> $op_trait<&'a NumericArray<T, N>> for NumericConstant<U>
             where
                 U: $op_trait<T>,
-                N: ArrayLength<<U as $op_trait<T>>::Output>,
             {
                 type Output = NumericArray<<U as $op_trait<T>>::Output, N>;
 
@@ -160,7 +150,7 @@ macro_rules! impl_binary_ops {
 macro_rules! impl_assign_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
-            impl<T, U, N: ArrayLength<T> + ArrayLength<U>> $op_trait<NumericArray<U, N>> for NumericArray<T, N>
+            impl<T, U, N: ArrayLength + ArrayLength> $op_trait<NumericArray<U, N>> for NumericArray<T, N>
             where
                 T: $op_trait<U>,
             {
@@ -179,7 +169,7 @@ macro_rules! impl_assign_ops {
                 }
             }
 
-            impl<'a, T, U: Clone, N: ArrayLength<T> + ArrayLength<U>> $op_trait<&'a NumericArray<U, N>> for NumericArray<T, N>
+            impl<'a, T, U: Clone, N: ArrayLength + ArrayLength> $op_trait<&'a NumericArray<U, N>> for NumericArray<T, N>
             where
                 T: $op_trait<U>,
             {
@@ -190,7 +180,7 @@ macro_rules! impl_assign_ops {
                 }
             }
 
-            impl<T, U: Clone, N: ArrayLength<T>> $op_trait<NumericConstant<U>> for NumericArray<T, N>
+            impl<T, U: Clone, N: ArrayLength> $op_trait<NumericConstant<U>> for NumericArray<T, N>
             where
                 T: $op_trait<U>,
             {
@@ -207,7 +197,7 @@ macro_rules! impl_assign_ops {
 macro_rules! impl_wrapping_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
-            impl<T, N: ArrayLength<T>> num_traits::$op_trait for NumericArray<T, N>
+            impl<T, N: ArrayLength> num_traits::$op_trait for NumericArray<T, N>
             where
                 T: num_traits::$op_trait,
             {
@@ -222,7 +212,7 @@ macro_rules! impl_wrapping_ops {
 macro_rules! impl_checked_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
-            impl<T, N: ArrayLength<T>> $op_trait for NumericArray<T, N>
+            impl<T, N: ArrayLength> $op_trait for NumericArray<T, N>
             where
                 T: $op_trait,
             {
@@ -254,7 +244,7 @@ macro_rules! impl_checked_ops {
 
 macro_rules! impl_float_const {
     ($($f:ident),*) => {
-        impl<T, N: ArrayLength<T>> FloatConst for NumericArray<T, N>
+        impl<T, N: ArrayLength> FloatConst for NumericArray<T, N>
         where
             T: FloatConst,
         {
@@ -313,7 +303,7 @@ impl_checked_ops! {
     CheckedDiv::checked_div
 }
 
-impl<T, N: ArrayLength<T>> CheckedShl for NumericArray<T, N>
+impl<T, N: ArrayLength> CheckedShl for NumericArray<T, N>
 where
     T: CheckedShl,
     Self: Shl<u32, Output = Self>,
@@ -341,7 +331,7 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> CheckedShr for NumericArray<T, N>
+impl<T, N: ArrayLength> CheckedShr for NumericArray<T, N>
 where
     T: CheckedShr,
     Self: Shr<u32, Output = Self>,
@@ -388,7 +378,7 @@ impl_float_const!(
     SQRT_2
 );
 
-impl<T, N: ArrayLength<T>> Zero for NumericArray<T, N>
+impl<T, N: ArrayLength> Zero for NumericArray<T, N>
 where
     T: Zero,
 {
@@ -401,7 +391,7 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> One for NumericArray<T, N>
+impl<T, N: ArrayLength> One for NumericArray<T, N>
 where
     T: One,
 {
@@ -410,7 +400,7 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> Saturating for NumericArray<T, N>
+impl<T, N: ArrayLength> Saturating for NumericArray<T, N>
 where
     T: Saturating,
 {
@@ -423,7 +413,7 @@ where
     }
 }
 
-impl<T: Clone, N: ArrayLength<T>> Num for NumericArray<T, N>
+impl<T: Clone, N: ArrayLength> Num for NumericArray<T, N>
 where
     T: Num,
 {
@@ -434,7 +424,7 @@ where
     }
 }
 
-impl<T: Clone, N: ArrayLength<T>> Signed for NumericArray<T, N>
+impl<T: Clone, N: ArrayLength> Signed for NumericArray<T, N>
 where
     T: Signed,
 {
@@ -459,9 +449,9 @@ where
     }
 }
 
-impl<T: Clone, N: ArrayLength<T>> Unsigned for NumericArray<T, N> where T: Unsigned {}
+impl<T: Clone, N: ArrayLength> Unsigned for NumericArray<T, N> where T: Unsigned {}
 
-impl<T, N: ArrayLength<T>> Bounded for NumericArray<T, N>
+impl<T, N: ArrayLength> Bounded for NumericArray<T, N>
 where
     T: Bounded,
 {
@@ -476,7 +466,7 @@ where
 
 macro_rules! impl_to_primitive {
     ($($to:ident => $prim:ty),*) => {
-        impl<T, N: ArrayLength<T>> ToPrimitive for NumericArray<T, N>
+        impl<T, N: ArrayLength> ToPrimitive for NumericArray<T, N>
         where
             T: ToPrimitive,
         {
@@ -511,7 +501,7 @@ impl_to_primitive! {
     to_f64      => f64
 }
 
-impl<T, N: ArrayLength<T>> NumCast for NumericArray<T, N>
+impl<T, N: ArrayLength> NumCast for NumericArray<T, N>
 where
     T: NumCast + Clone,
 {
@@ -520,7 +510,7 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> Float for NumericArray<T, N>
+impl<T, N: ArrayLength> Float for NumericArray<T, N>
 where
     T: Float + Copy,
     Self: Copy,
