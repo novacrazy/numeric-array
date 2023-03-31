@@ -4,7 +4,7 @@
 
 use super::*;
 
-use generic_array::{ArrayBuilder, ArrayConsumer};
+use generic_array::internals::{ArrayBuilder, ArrayConsumer};
 
 /// Selects elements from one array or another using `self` as a mask.
 pub unsafe trait Select<T, N: ArrayLength> {
@@ -53,9 +53,7 @@ where
                     let value = values.get_unchecked(*index).clone();
 
                     *index_position += 1;
-
-                    ptr::write(dst, value);
-
+                    dst.write(value);
                     *destination_position += 1;
                 });
             }
@@ -92,7 +90,7 @@ unsafe impl<T, N: ArrayLength> Select<T, N> for NumericArray<bool, N> {
                         *true_values_position += 1;
                         *false_values_position += 1;
 
-                        ptr::write(dst, if m { t } else { f });
+                        dst.write(if m { t } else { f });
 
                         *destination_position += 1;
                     });

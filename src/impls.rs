@@ -23,7 +23,7 @@ use core::ops::*;
 
 use num_traits::*;
 
-use generic_array::{ArrayBuilder, ArrayConsumer};
+use generic_array::internals::{ArrayBuilder, ArrayConsumer};
 
 macro_rules! impl_unary_ops {
     ($($op_trait:ident::$op:ident),*) => {
@@ -225,8 +225,7 @@ macro_rules! impl_checked_ops {
 
                             for (dst, (lhs, rhs)) in array_iter.zip(self.iter().zip(rhs.iter())) {
                                 if let Some(value) = $op_trait::$op(lhs, rhs) {
-                                    ptr::write(dst, value);
-
+                                    dst.write(value);
                                     *position += 1;
                                 } else {
                                     return None;
@@ -317,8 +316,7 @@ where
 
                 for (dst, lhs) in builder_iter.zip(self.iter()) {
                     if let Some(value) = CheckedShl::checked_shl(lhs, rhs) {
-                        ptr::write(dst, value);
-
+                        dst.write(value);
                         *builder_position += 1;
                     } else {
                         return None;
@@ -345,8 +343,7 @@ where
 
                 for (dst, lhs) in builder_iter.zip(self.iter()) {
                     if let Some(value) = CheckedShr::checked_shr(lhs, rhs) {
-                        ptr::write(dst, value);
-
+                        dst.write(value);
                         *builder_position += 1;
                     } else {
                         return None;
@@ -652,7 +649,7 @@ where
                         *a_arr_position += 1;
                         *b_arr_position += 1;
 
-                        ptr::write(dst, Float::mul_add(l, a, b));
+                        dst.write(Float::mul_add(l, a, b));
 
                         *destination_position += 1;
                     });
@@ -773,8 +770,8 @@ where
 
                         let (s, c) = Float::sin_cos(x);
 
-                        ptr::write(sin, s);
-                        ptr::write(cos, c);
+                        sin.write(s);
+                        cos.write(c);
 
                         *sin_destination_position += 1;
                         *cos_destination_position += 1;
