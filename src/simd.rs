@@ -38,65 +38,44 @@ unsafe impl<T, N: ArrayLength> Permute<T, N> for NumericArray<usize, N>
 where
     T: Clone,
 {
+    #[inline]
     fn permute(self, values: &NumericArray<T, N>) -> NumericArray<T, N> {
         unsafe {
-            let mut indices = ArrayConsumer::new(self.0);
-
-            let (index_iter, index_position) = indices.iter_position();
-
             let mut destination = ArrayBuilder::new();
 
-            {
-                let (destination_iter, destination_position) = destination.iter_position();
+            destination.extend(self.0.iter().map(|index| values.get_unchecked(*index).clone()));
 
-                destination_iter.zip(index_iter).for_each(|(dst, index)| {
-                    let value = values.get_unchecked(*index).clone();
-
-                    *index_position += 1;
-                    dst.write(value);
-                    *destination_position += 1;
-                });
-            }
-
-            NumericArray::new(destination.into_inner())
+            NumericArray::new(destination.assume_init())
         }
     }
 }
 
 unsafe impl<T, N: ArrayLength> Select<T, N> for NumericArray<bool, N> {
+    #[inline]
     fn select(self, true_values: NumericArray<T, N>, false_values: NumericArray<T, N>) -> NumericArray<T, N> {
         unsafe {
-            let mut mask = ArrayConsumer::new(self.0);
             let mut true_values = ArrayConsumer::new(true_values.0);
             let mut false_values = ArrayConsumer::new(false_values.0);
 
-            let (mask_iter, mask_position) = mask.iter_position();
             let (true_values_iter, true_values_position) = true_values.iter_position();
             let (false_values_iter, false_values_position) = false_values.iter_position();
 
             let mut destination = ArrayBuilder::new();
 
-            {
-                let (destination_iter, destination_position) = destination.iter_position();
+            destination.extend(self.0.iter().zip(true_values_iter.zip(false_values_iter)).map(|(m, (t, f))| {
+                let t = ptr::read(t);
+                let f = ptr::read(f);
 
-                destination_iter
-                    .zip(mask_iter.zip(true_values_iter.zip(false_values_iter)))
-                    .for_each(|(dst, (m, (t, f)))| {
-                        let t = ptr::read(t);
-                        let f = ptr::read(f);
-                        let m = ptr::read(m);
+                *true_values_position += 1;
+                *false_values_position = *true_values_position;
 
-                        *mask_position += 1;
-                        *true_values_position += 1;
-                        *false_values_position += 1;
+                match *m {
+                    true => t,
+                    false => f,
+                }
+            }));
 
-                        dst.write(if m { t } else { f });
-
-                        *destination_position += 1;
-                    });
-            }
-
-            NumericArray::new(destination.into_inner())
+            NumericArray::new(destination.assume_init())
         }
     }
 }

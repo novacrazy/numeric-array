@@ -233,7 +233,7 @@ macro_rules! impl_checked_ops {
                             }
                         }
 
-                        Some(NumericArray(builder.into_inner()))
+                        Some(NumericArray(builder.assume_init()))
                     }
                 }
             }
@@ -324,7 +324,7 @@ where
                 }
             }
 
-            Some(NumericArray(builder.into_inner()))
+            Some(NumericArray(builder.assume_init()))
         }
     }
 }
@@ -351,7 +351,7 @@ where
                 }
             }
 
-            Some(NumericArray(builder.into_inner()))
+            Some(NumericArray(builder.assume_init()))
         }
     }
 }
@@ -635,27 +635,19 @@ where
 
             let mut destination = ArrayBuilder::new();
 
-            {
-                let (destination_iter, destination_position) = destination.iter_position();
+            destination.extend(left_iter.zip(a_arr_iter.zip(b_arr_iter)).map(|(l, (a, b))| {
+                let l = ptr::read(l);
+                let a = ptr::read(a);
+                let b = ptr::read(b);
 
-                destination_iter
-                    .zip(left_iter.zip(a_arr_iter.zip(b_arr_iter)))
-                    .for_each(|(dst, (l, (a, b)))| {
-                        let l = ptr::read(l);
-                        let a = ptr::read(a);
-                        let b = ptr::read(b);
+                *left_position += 1;
+                *a_arr_position = *left_position;
+                *b_arr_position = *left_position;
 
-                        *left_position += 1;
-                        *a_arr_position += 1;
-                        *b_arr_position += 1;
+                Float::mul_add(l, a, b)
+            }));
 
-                        dst.write(Float::mul_add(l, a, b));
-
-                        *destination_position += 1;
-                    });
-            }
-
-            NumericArray::new(destination.into_inner())
+            NumericArray::new(destination.assume_init())
         }
     }
 
@@ -773,14 +765,14 @@ where
                         sin.write(s);
                         cos.write(c);
 
-                        *sin_destination_position += 1;
-                        *cos_destination_position += 1;
+                        *sin_destination_position = *source_position;
+                        *cos_destination_position = *source_position;
                     });
             }
 
             (
-                NumericArray::new(sin_destination.into_inner()),
-                NumericArray::new(cos_destination.into_inner()),
+                NumericArray::new(sin_destination.assume_init()),
+                NumericArray::new(cos_destination.assume_init()),
             )
         }
     }

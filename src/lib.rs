@@ -23,14 +23,14 @@
 //! use numeric_array::NumericArray;
 //!
 //! fn main() {
-//!     let a = narr![f32; 1, 2, 3, 4];
-//!     let b = narr![f32; 5, 6, 7, 8];
-//!     let c = narr![f32; 9, 1, 2, 3];
+//!     let a = narr![1.0, 2.0, 3.0, 4.0];
+//!     let b = narr![5.0, 6.0, 7.0, 8.0];
+//!     let c = narr![9.0, 1.0, 2.0, 3.0];
 //!
 //!     // Compiles to a single vfmadd213ps instruction on my machine
 //!     let d = a.mul_add(b, c);
 //!
-//!     assert_eq!(d, narr![f32; 14, 13, 23, 35]);
+//!     assert_eq!(d, narr![14.0, 13.0, 23.0, 35.0]);
 //! }
 //! ```
 //!
@@ -289,7 +289,7 @@ impl<T, N: ArrayLength> NumericArray<T, N> {
     /// use numeric_array::NumericArray;
     ///
     /// fn main() {
-    ///     let arr = NumericArray::new(arr![i32; 1, 2, 3, 4]);
+    ///     let arr = NumericArray::new(arr![1, 2, 3, 4]);
     ///
     ///     println!("{:?}", arr); // Prints 'NumericArray([1, 2, 3, 4])'
     /// }
@@ -304,7 +304,7 @@ impl<T, N: ArrayLength> NumericArray<T, N> {
     /// Example:
     ///
     /// ```ignore
-    /// let a = NumericArray::new(arr![i32; 5, 5, 5, 5]);
+    /// let a = NumericArray::new(arr![5, 5, 5, 5]);
     /// let b = NumericArray::splat(5);
     ///
     /// assert_eq!(a, b);
@@ -583,30 +583,30 @@ pub mod tests {
 
     #[test]
     fn test_ops() {
-        let a = black_box(narr![i32; 1, 3, 5, 7]);
-        let b = black_box(narr![i32; 2, 4, 6, 8]);
+        let a = black_box(narr![1, 3, 5, 7]);
+        let b = black_box(narr![2, 4, 6, 8]);
 
         let c = a + b;
         let d = c * nconstant!(black_box(5));
         let e = d << nconstant!(1_usize);
 
-        assert_eq!(e, narr![i32; 30, 70, 110, 150])
+        assert_eq!(e, narr![30, 70, 110, 150])
     }
 
     #[test]
     fn test_constants() {
-        let a = black_box(narr![i32; 1, 3, 5, 7]);
-        let b = black_box(narr![i32; 2, 4, 6, 8]);
+        let a = black_box(narr![1, 3, 5, 7]);
+        let b = black_box(narr![2, 4, 6, 8]);
 
         let c = a + b * nconstant!(2);
 
-        assert_eq!(c, narr![i32; 5, 11, 17, 23]);
+        assert_eq!(c, narr![5, 11, 17, 23]);
     }
 
     #[test]
     fn test_floats() {
-        let a = black_box(narr![f32; 1.0, 3.0, 5.0, 7.0]);
-        let b = black_box(narr![f32; 2.0, 4.0, 6.0, 8.0]);
+        let a = black_box(narr![1.0f32, 3.0, 5.0, 7.0]);
+        let b = black_box(narr![2.0f32, 4.0, 6.0, 8.0]);
 
         let c = a + b;
 
@@ -617,8 +617,8 @@ pub mod tests {
     fn test_other() {
         use num_traits::Saturating;
 
-        let a = black_box(narr![i32; 1, 3, 5, 7]);
-        let b = black_box(narr![i32; 2, 4, 6, 8]);
+        let a = black_box(narr![1, 3, 5, 7]);
+        let b = black_box(narr![2, 4, 6, 8]);
 
         let c = a.saturating_add(b);
 
@@ -629,12 +629,12 @@ pub mod tests {
     fn test_atan2() {
         use num_traits::Float;
 
-        let a = black_box(narr![f32; 1, 2, 3, 4]);
-        let b = black_box(narr![f32; 2, 3, 4, 5]);
+        let a = black_box(narr![1.0f32, 2.0, 3.0, 4.0]);
+        let b = black_box(narr![2.0f32, 3.0, 4.0, 5.0]);
 
         let c = a.atan2(b);
 
-        assert_eq!(c, narr![f32; 0.4636476, 0.5880026, 0.6435011, 0.67474097]);
+        assert_eq!(c, narr![0.4636476, 0.5880026, 0.6435011, 0.67474097]);
     }
 
     #[test]
@@ -645,13 +645,13 @@ pub mod tests {
         let nan = f32::nan();
         let infinity = f32::infinity();
 
-        let any_nan = black_box(narr![f32; 1, 2, nan, 0]);
-        let any_infinite = black_box(narr![f32; 1, infinity, 2, 3]);
-        let any_mixed = black_box(narr![f32; 1, infinity, nan, 0]);
-        let all_normal = black_box(narr![f32; 1, 2, 3, 4]);
-        let all_zero = black_box(narr![f32; 0, 0, 0, 0]);
+        let any_nan = black_box(narr![1.0, 2.0, nan, 0.0]);
+        let any_infinite = black_box(narr![1.0, infinity, 2.0, 3.0]);
+        let any_mixed = black_box(narr![1.0, infinity, nan, 0.0]);
+        let all_normal = black_box(narr![1.0, 2.0, 3.0, 4.0]);
+        let all_zero = black_box(narr![0.0, 0.0, 0.0, 0.0]);
 
-        let non_zero = black_box(narr![f32; 0, 1, 0, 0]);
+        let non_zero = black_box(narr![0.0f32, 1.0, 0.0, 0.0]);
 
         assert_eq!(any_nan.classify(), FpCategory::Nan);
         assert_eq!(any_mixed.classify(), FpCategory::Nan);
@@ -661,18 +661,18 @@ pub mod tests {
 
         assert_eq!(non_zero.classify(), FpCategory::Normal);
 
-        assert_eq!(any_nan.is_infinite(), false);
-        assert_eq!(any_mixed.is_infinite(), true);
-        assert_eq!(any_nan.is_nan(), true);
-        assert_eq!(any_mixed.is_nan(), true);
-        assert_eq!(any_infinite.is_nan(), false);
+        assert!(!any_nan.is_infinite());
+        assert!(any_mixed.is_infinite());
+        assert!(any_nan.is_nan());
+        assert!(any_mixed.is_nan());
+        assert!(!any_infinite.is_nan());
     }
 
     #[test]
     fn test_tanh() {
         use num_traits::Float;
 
-        let a = black_box(narr![f32; 1, 2, 3, 4]);
+        let a = black_box(narr![1.0f32, 2.0, 3.0, 4.0]);
 
         black_box(a.tanh());
     }
@@ -681,28 +681,28 @@ pub mod tests {
     pub fn test_madd() {
         use num_traits::Float;
 
-        let a = black_box(narr![f32; 1, 2, 3, 4]);
-        let b = black_box(narr![f32; 5, 6, 7, 8]);
-        let c = black_box(narr![f32; 9, 1, 2, 3]);
+        let a = black_box(narr![1.0f32, 2.0, 3.0, 4.0]);
+        let b = black_box(narr![5.0f32, 6.0, 7.0, 8.0]);
+        let c = black_box(narr![9.0f32, 1.0, 2.0, 3.0]);
 
         let d = a.mul_add(b, c);
 
-        assert_eq!(d, narr![f32; 14, 13, 23, 35]);
+        assert_eq!(d, narr![14.0, 13.0, 23.0, 35.0]);
     }
 
     #[test]
     #[no_mangle]
     pub fn test_select() {
-        use simd::Select;
+        use crate::simd::Select;
 
-        let mask = black_box(narr![bool; true, false, false, true]);
+        let mask = black_box(narr![true, false, false, true]);
 
-        let a = black_box(narr![i32; 1, 2, 3, 4]);
-        let b = black_box(narr![i32; 5, 6, 7, 8]);
+        let a = black_box(narr![1, 2, 3, 4]);
+        let b = black_box(narr![5, 6, 7, 8]);
 
         // Compiles to vblendvps
         let selected = mask.select(a, b);
 
-        assert_eq!(selected, narr![i32; 1, 6, 7, 4]);
+        assert_eq!(selected, narr![1, 6, 7, 4]);
     }
 }
