@@ -335,19 +335,19 @@ impl<T, N: ArrayLength> NumericArray<T, N> {
     }
 
     /// Get mutable reference to underlying `GenericArray` instance.
-    #[inline]
+    #[inline(always)]
     pub fn as_mut_array(&mut self) -> &mut GenericArray<T, N> {
         &mut self.0
     }
 
     /// Extracts a slice containing the entire array.
-    #[inline]
+    #[inline(always)]
     pub fn as_slice(&self) -> &[T] {
         &self.0
     }
 
     /// Extracts a mutable slice containing the entire array.
-    #[inline]
+    #[inline(always)]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         &mut self.0
     }
@@ -355,7 +355,7 @@ impl<T, N: ArrayLength> NumericArray<T, N> {
     /// Converts slice to a numeric array reference with inferred length;
     ///
     /// Length of the slice must be equal to the length of the array.
-    #[inline]
+    #[inline(always)]
     pub fn from_slice(slice: &[T]) -> &NumericArray<T, N> {
         slice.into()
     }
@@ -363,7 +363,7 @@ impl<T, N: ArrayLength> NumericArray<T, N> {
     /// Converts mutable slice to a mutable numeric array reference
     ///
     /// Length of the slice must be equal to the length of the array.
-    #[inline]
+    #[inline(always)]
     pub fn from_mut_slice(slice: &mut [T]) -> &mut NumericArray<T, N> {
         slice.into()
     }
@@ -398,7 +398,7 @@ impl<'a, T, N: ArrayLength> From<&'a [T]> for &'a NumericArray<T, N> {
     /// Converts slice to a numeric array reference with inferred length;
     ///
     /// Length of the slice must be equal to the length of the array.
-    #[inline]
+    #[inline(always)]
     fn from(slice: &[T]) -> &NumericArray<T, N> {
         debug_assert_eq!(slice.len(), N::to_usize());
 
@@ -410,7 +410,7 @@ impl<'a, T, N: ArrayLength> From<&'a mut [T]> for &'a mut NumericArray<T, N> {
     /// Converts mutable slice to a mutable numeric array reference
     ///
     /// Length of the slice must be equal to the length of the array.
-    #[inline]
+    #[inline(always)]
     fn from(slice: &mut [T]) -> &mut NumericArray<T, N> {
         debug_assert_eq!(slice.len(), N::to_usize());
 
@@ -419,18 +419,21 @@ impl<'a, T, N: ArrayLength> From<&'a mut [T]> for &'a mut NumericArray<T, N> {
 }
 
 impl<T, N: ArrayLength> AsRef<[T]> for NumericArray<T, N> {
+    #[inline(always)]
     fn as_ref(&self) -> &[T] {
         self
     }
 }
 
 impl<T, N: ArrayLength> Borrow<[T]> for NumericArray<T, N> {
+    #[inline(always)]
     fn borrow(&self) -> &[T] {
         self
     }
 }
 
 impl<T, N: ArrayLength> AsMut<[T]> for NumericArray<T, N> {
+    #[inline(always)]
     fn as_mut(&mut self) -> &mut [T] {
         self
     }
@@ -526,7 +529,7 @@ impl<'a, T, N: ArrayLength> IntoIterator for &'a NumericArray<T, N> {
     type Item = &'a T;
     type IntoIter = slice::Iter<'a, T>;
 
-    #[inline]
+    #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
@@ -536,7 +539,7 @@ impl<'a, T, N: ArrayLength> IntoIterator for &'a mut NumericArray<T, N> {
     type Item = &'a mut T;
     type IntoIter = slice::IterMut<'a, T>;
 
-    #[inline]
+    #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
         self.iter_mut()
     }
@@ -546,12 +549,14 @@ impl<T, N: ArrayLength> IntoIterator for NumericArray<T, N> {
     type Item = T;
     type IntoIter = GenericArrayIter<T, N>;
 
+    #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
 }
 
 impl<T, N: ArrayLength> FromIterator<T> for NumericArray<T, N> {
+    #[inline(always)]
     fn from_iter<I>(iter: I) -> Self
     where
         I: IntoIterator<Item = T>,
@@ -564,6 +569,7 @@ impl<T, N: ArrayLength> Default for NumericArray<T, N>
 where
     T: Default,
 {
+    #[inline(always)]
     fn default() -> Self {
         NumericArray(GenericArray::default())
     }
