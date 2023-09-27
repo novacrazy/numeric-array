@@ -16,15 +16,13 @@ pub trait Geometric<T> {
     fn norm_squared(&self) -> T;
 }
 
-impl<T, N: ArrayLength<T>> Geometric<T> for NumericArray<T, N>
+impl<T, N: ArrayLength> Geometric<T> for NumericArray<T, N>
 where
     T: Add<Output = T> + Mul<Output = T> + Zero + Copy,
 {
     #[inline(always)]
     fn scalar_product(&self, other: &Self) -> T {
-        self.iter().zip(&other.0).fold(T::zero(), |sum, (l, r)| {
-            sum + (*l * *r)
-        })
+        self.iter().zip(&other.0).fold(T::zero(), |sum, (l, r)| sum + (*l * *r))
     }
 
     #[inline(always)]
@@ -32,9 +30,7 @@ where
     where
         T: Signed,
     {
-        self.iter().zip(&other.0).fold(T::zero(), |sum, (l, r)| {
-            sum + (*l * *r).abs()
-        })
+        self.iter().zip(&other.0).fold(T::zero(), |sum, (l, r)| sum + (*l * *r).abs())
     }
 
     #[inline(always)]

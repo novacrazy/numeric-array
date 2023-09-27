@@ -18,35 +18,36 @@
 
 use super::*;
 
+use core::mem::{self, ManuallyDrop};
 use core::num::FpCategory;
 use core::ops::*;
 
 use num_traits::*;
 
-use generic_array::{ArrayBuilder, ArrayConsumer};
+use generic_array::internals::{ArrayBuilder, ArrayConsumer};
 
 macro_rules! impl_unary_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
-            impl<T, N: ArrayLength<T>> $op_trait for NumericArray<T, N>
+            impl<T, N: ArrayLength> $op_trait for NumericArray<T, N>
             where
                 T: $op_trait,
-                N: ArrayLength<<T as $op_trait>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait>::Output, N>;
 
+                #[inline(always)]
                 fn $op(self) -> Self::Output {
                     NumericArray(self.0.map($op_trait::$op))
                 }
             }
 
-            impl<'a, T: Clone, N: ArrayLength<T>> $op_trait for &'a NumericArray<T, N>
+            impl<'a, T: Clone, N: ArrayLength> $op_trait for &'a NumericArray<T, N>
             where
                 T: $op_trait,
-                N: ArrayLength<<T as $op_trait>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait>::Output, N>;
 
+                #[inline(always)]
                 fn $op(self) -> Self::Output {
                     NumericArray((&self.0).map(|x| $op_trait::$op(x.clone())))
                 }
@@ -58,97 +59,97 @@ macro_rules! impl_unary_ops {
 macro_rules! impl_binary_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
-            impl<T, U, N: ArrayLength<T> + ArrayLength<U>> $op_trait<NumericArray<U, N>> for NumericArray<T, N>
+            impl<T, U, N: ArrayLength> $op_trait<NumericArray<U, N>> for NumericArray<T, N>
             where
                 T: $op_trait<U>,
-                N: ArrayLength<<T as $op_trait<U>>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait<U>>::Output, N>;
 
+                #[inline(always)]
                 fn $op(self, rhs: NumericArray<U, N>) -> Self::Output {
                     NumericArray(self.0.zip(rhs.0, $op_trait::$op))
                 }
             }
 
-            impl<'a, T, U: Clone, N: ArrayLength<T> + ArrayLength<U>> $op_trait<&'a NumericArray<U, N>> for NumericArray<T, N>
+            impl<'a, T, U: Clone, N: ArrayLength> $op_trait<&'a NumericArray<U, N>> for NumericArray<T, N>
             where
                 T: $op_trait<U>,
-                N: ArrayLength<<T as $op_trait<U>>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait<U>>::Output, N>;
 
+                #[inline(always)]
                 fn $op(self, rhs: &'a NumericArray<U, N>) -> Self::Output {
                     NumericArray(self.0.zip(&rhs.0, |l, r| $op_trait::$op(l, r.clone())))
                 }
             }
 
-            impl<'a, T: Clone, U, N: ArrayLength<T> + ArrayLength<U>> $op_trait<NumericArray<U, N>> for &'a NumericArray<T, N>
+            impl<'a, T: Clone, U, N: ArrayLength> $op_trait<NumericArray<U, N>> for &'a NumericArray<T, N>
             where
                 T: $op_trait<U>,
-                N: ArrayLength<<T as $op_trait<U>>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait<U>>::Output, N>;
 
+                #[inline(always)]
                 fn $op(self, rhs: NumericArray<U, N>) -> Self::Output {
                     NumericArray((&self.0).zip(rhs.0, |l, r| $op_trait::$op(l.clone(), r)))
                 }
             }
 
-            impl<'a, 'b, T: Clone, U: Clone, N: ArrayLength<T> + ArrayLength<U>> $op_trait<&'b NumericArray<U, N>> for &'a NumericArray<T, N>
+            impl<'a, 'b, T: Clone, U: Clone, N: ArrayLength> $op_trait<&'b NumericArray<U, N>> for &'a NumericArray<T, N>
             where
                 T: $op_trait<U>,
-                N: ArrayLength<<T as $op_trait<U>>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait<U>>::Output, N>;
 
+                #[inline(always)]
                 fn $op(self, rhs: &'b NumericArray<U, N>) -> Self::Output {
                     NumericArray((&self.0).zip(&rhs.0, |l, r| $op_trait::$op(l.clone(), r.clone())))
                 }
             }
 
-            impl<T, U: Clone, N: ArrayLength<T>> $op_trait<NumericConstant<U>> for NumericArray<T, N>
+            impl<T, U: Clone, N: ArrayLength> $op_trait<NumericConstant<U>> for NumericArray<T, N>
             where
                 T: $op_trait<U>,
-                N: ArrayLength<<T as $op_trait<U>>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait<U>>::Output, N>;
 
+                #[inline(always)]
                 fn $op(self, rhs: NumericConstant<U>) -> Self::Output {
                     NumericArray(self.0.map(|l| $op_trait::$op(l, rhs.0.clone())))
                 }
             }
 
-            impl<'a, T: Clone, U: Clone, N: ArrayLength<T>> $op_trait<NumericConstant<U>> for &'a NumericArray<T, N>
+            impl<'a, T: Clone, U: Clone, N: ArrayLength> $op_trait<NumericConstant<U>> for &'a NumericArray<T, N>
             where
                 T: $op_trait<U>,
-                N: ArrayLength<<T as $op_trait<U>>::Output>,
             {
                 type Output = NumericArray<<T as $op_trait<U>>::Output, N>;
 
+                #[inline(always)]
                 fn $op(self, rhs: NumericConstant<U>) -> Self::Output {
                     NumericArray((&self.0).map(|l| $op_trait::$op(l.clone(), rhs.0.clone())))
                 }
             }
 
-            impl<T, U: Clone, N: ArrayLength<T>> $op_trait<NumericArray<T, N>> for NumericConstant<U>
+            impl<T, U: Clone, N: ArrayLength> $op_trait<NumericArray<T, N>> for NumericConstant<U>
             where
                 U: $op_trait<T>,
-                N: ArrayLength<<U as $op_trait<T>>::Output>,
             {
                 type Output = NumericArray<<U as $op_trait<T>>::Output, N>;
 
+                #[inline(always)]
                 fn $op(self, rhs: NumericArray<T, N>) -> Self::Output {
                     NumericArray(rhs.0.map(|r| $op_trait::$op(self.0.clone(), r)))
                 }
             }
 
-            impl<'a, T: Clone, U: Clone, N: ArrayLength<T>> $op_trait<&'a NumericArray<T, N>> for NumericConstant<U>
+            impl<'a, T: Clone, U: Clone, N: ArrayLength> $op_trait<&'a NumericArray<T, N>> for NumericConstant<U>
             where
                 U: $op_trait<T>,
-                N: ArrayLength<<U as $op_trait<T>>::Output>,
             {
                 type Output = NumericArray<<U as $op_trait<T>>::Output, N>;
 
+                #[inline(always)]
                 fn $op(self, rhs: &'a NumericArray<T, N>) -> Self::Output {
                     NumericArray((&rhs.0).map(|r| $op_trait::$op(self.0.clone(), r.clone())))
                 }
@@ -160,26 +161,34 @@ macro_rules! impl_binary_ops {
 macro_rules! impl_assign_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
-            impl<T, U, N: ArrayLength<T> + ArrayLength<U>> $op_trait<NumericArray<U, N>> for NumericArray<T, N>
+            impl<T, U, N: ArrayLength> $op_trait<NumericArray<U, N>> for NumericArray<T, N>
             where
                 T: $op_trait<U>,
             {
                 fn $op(&mut self, rhs: NumericArray<U, N>) {
-                    unsafe {
-                        let mut right = ArrayConsumer::new(rhs.0);
+                    if mem::needs_drop::<U>() {
+                        unsafe {
+                            let mut right = ArrayConsumer::new(rhs.0);
 
-                        let (right_iter, right_position) = right.iter_position();
+                            let (right_iter, right_position) = right.iter_position();
 
-                        self.iter_mut().zip(right_iter).for_each(|(lhs, rhs)| {
+                            self.iter_mut().zip(right_iter).for_each(|(lhs, rhs)| {
+                                $op_trait::$op(lhs, ptr::read(rhs));
+
+                                *right_position += 1;
+                            });
+                        }
+                    } else {
+                        let right = ManuallyDrop::new(rhs);
+
+                        self.iter_mut().zip(right.iter()).for_each(|(lhs, rhs)| unsafe {
                             $op_trait::$op(lhs, ptr::read(rhs));
-
-                            *right_position += 1;
                         });
                     }
                 }
             }
 
-            impl<'a, T, U: Clone, N: ArrayLength<T> + ArrayLength<U>> $op_trait<&'a NumericArray<U, N>> for NumericArray<T, N>
+            impl<'a, T, U: Clone, N: ArrayLength> $op_trait<&'a NumericArray<U, N>> for NumericArray<T, N>
             where
                 T: $op_trait<U>,
             {
@@ -190,7 +199,7 @@ macro_rules! impl_assign_ops {
                 }
             }
 
-            impl<T, U: Clone, N: ArrayLength<T>> $op_trait<NumericConstant<U>> for NumericArray<T, N>
+            impl<T, U: Clone, N: ArrayLength> $op_trait<NumericConstant<U>> for NumericArray<T, N>
             where
                 T: $op_trait<U>,
             {
@@ -207,7 +216,7 @@ macro_rules! impl_assign_ops {
 macro_rules! impl_wrapping_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
-            impl<T, N: ArrayLength<T>> num_traits::$op_trait for NumericArray<T, N>
+            impl<T, N: ArrayLength> num_traits::$op_trait for NumericArray<T, N>
             where
                 T: num_traits::$op_trait,
             {
@@ -222,7 +231,7 @@ macro_rules! impl_wrapping_ops {
 macro_rules! impl_checked_ops {
     ($($op_trait:ident::$op:ident),*) => {
         $(
-            impl<T, N: ArrayLength<T>> $op_trait for NumericArray<T, N>
+            impl<T, N: ArrayLength> $op_trait for NumericArray<T, N>
             where
                 T: $op_trait,
             {
@@ -235,8 +244,7 @@ macro_rules! impl_checked_ops {
 
                             for (dst, (lhs, rhs)) in array_iter.zip(self.iter().zip(rhs.iter())) {
                                 if let Some(value) = $op_trait::$op(lhs, rhs) {
-                                    ptr::write(dst, value);
-
+                                    dst.write(value);
                                     *position += 1;
                                 } else {
                                     return None;
@@ -244,7 +252,7 @@ macro_rules! impl_checked_ops {
                             }
                         }
 
-                        Some(NumericArray(builder.into_inner()))
+                        Some(NumericArray(builder.assume_init()))
                     }
                 }
             }
@@ -254,7 +262,7 @@ macro_rules! impl_checked_ops {
 
 macro_rules! impl_float_const {
     ($($f:ident),*) => {
-        impl<T, N: ArrayLength<T>> FloatConst for NumericArray<T, N>
+        impl<T, N: ArrayLength> FloatConst for NumericArray<T, N>
         where
             T: FloatConst,
         {
@@ -313,7 +321,7 @@ impl_checked_ops! {
     CheckedDiv::checked_div
 }
 
-impl<T, N: ArrayLength<T>> CheckedShl for NumericArray<T, N>
+impl<T, N: ArrayLength> CheckedShl for NumericArray<T, N>
 where
     T: CheckedShl,
     Self: Shl<u32, Output = Self>,
@@ -327,8 +335,7 @@ where
 
                 for (dst, lhs) in builder_iter.zip(self.iter()) {
                     if let Some(value) = CheckedShl::checked_shl(lhs, rhs) {
-                        ptr::write(dst, value);
-
+                        dst.write(value);
                         *builder_position += 1;
                     } else {
                         return None;
@@ -336,12 +343,12 @@ where
                 }
             }
 
-            Some(NumericArray(builder.into_inner()))
+            Some(NumericArray(builder.assume_init()))
         }
     }
 }
 
-impl<T, N: ArrayLength<T>> CheckedShr for NumericArray<T, N>
+impl<T, N: ArrayLength> CheckedShr for NumericArray<T, N>
 where
     T: CheckedShr,
     Self: Shr<u32, Output = Self>,
@@ -355,8 +362,7 @@ where
 
                 for (dst, lhs) in builder_iter.zip(self.iter()) {
                     if let Some(value) = CheckedShr::checked_shr(lhs, rhs) {
-                        ptr::write(dst, value);
-
+                        dst.write(value);
                         *builder_position += 1;
                     } else {
                         return None;
@@ -364,7 +370,7 @@ where
                 }
             }
 
-            Some(NumericArray(builder.into_inner()))
+            Some(NumericArray(builder.assume_init()))
         }
     }
 }
@@ -388,7 +394,7 @@ impl_float_const!(
     SQRT_2
 );
 
-impl<T, N: ArrayLength<T>> Zero for NumericArray<T, N>
+impl<T, N: ArrayLength> Zero for NumericArray<T, N>
 where
     T: Zero,
 {
@@ -401,7 +407,7 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> One for NumericArray<T, N>
+impl<T, N: ArrayLength> One for NumericArray<T, N>
 where
     T: One,
 {
@@ -410,7 +416,7 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> Saturating for NumericArray<T, N>
+impl<T, N: ArrayLength> Saturating for NumericArray<T, N>
 where
     T: Saturating,
 {
@@ -423,7 +429,7 @@ where
     }
 }
 
-impl<T: Clone, N: ArrayLength<T>> Num for NumericArray<T, N>
+impl<T: Clone, N: ArrayLength> Num for NumericArray<T, N>
 where
     T: Num,
 {
@@ -434,7 +440,7 @@ where
     }
 }
 
-impl<T: Clone, N: ArrayLength<T>> Signed for NumericArray<T, N>
+impl<T: Clone, N: ArrayLength> Signed for NumericArray<T, N>
 where
     T: Signed,
 {
@@ -459,9 +465,9 @@ where
     }
 }
 
-impl<T: Clone, N: ArrayLength<T>> Unsigned for NumericArray<T, N> where T: Unsigned {}
+impl<T: Clone, N: ArrayLength> Unsigned for NumericArray<T, N> where T: Unsigned {}
 
-impl<T, N: ArrayLength<T>> Bounded for NumericArray<T, N>
+impl<T, N: ArrayLength> Bounded for NumericArray<T, N>
 where
     T: Bounded,
 {
@@ -476,7 +482,7 @@ where
 
 macro_rules! impl_to_primitive {
     ($($to:ident => $prim:ty),*) => {
-        impl<T, N: ArrayLength<T>> ToPrimitive for NumericArray<T, N>
+        impl<T, N: ArrayLength> ToPrimitive for NumericArray<T, N>
         where
             T: ToPrimitive,
         {
@@ -511,7 +517,7 @@ impl_to_primitive! {
     to_f64      => f64
 }
 
-impl<T, N: ArrayLength<T>> NumCast for NumericArray<T, N>
+impl<T, N: ArrayLength> NumCast for NumericArray<T, N>
 where
     T: NumCast + Clone,
 {
@@ -520,7 +526,7 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> Float for NumericArray<T, N>
+impl<T, N: ArrayLength> Float for NumericArray<T, N>
 where
     T: Float + Copy,
     Self: Copy,
@@ -637,38 +643,36 @@ where
     }
 
     fn mul_add(self, a: Self, b: Self) -> Self {
-        unsafe {
-            let mut left = ArrayConsumer::new(self.0);
-            let mut a_arr = ArrayConsumer::new(a.0);
-            let mut b_arr = ArrayConsumer::new(b.0);
+        if mem::needs_drop::<T>() {
+            unsafe {
+                let mut left = ArrayConsumer::new(self.0);
+                let mut a_arr = ArrayConsumer::new(a.0);
+                let mut b_arr = ArrayConsumer::new(b.0);
 
-            let (left_iter, left_position) = left.iter_position();
-            let (a_arr_iter, a_arr_position) = a_arr.iter_position();
-            let (b_arr_iter, b_arr_position) = b_arr.iter_position();
+                let (left_iter, left_position) = left.iter_position();
+                let (a_arr_iter, a_arr_position) = a_arr.iter_position();
+                let (b_arr_iter, b_arr_position) = b_arr.iter_position();
 
-            let mut destination = ArrayBuilder::new();
+                NumericArray::from_iter(left_iter.zip(a_arr_iter.zip(b_arr_iter)).map(|(l, (a, b))| {
+                    let l = ptr::read(l);
+                    let a = ptr::read(a);
+                    let b = ptr::read(b);
 
-            {
-                let (destination_iter, destination_position) = destination.iter_position();
+                    *left_position += 1;
+                    *a_arr_position = *left_position;
+                    *b_arr_position = *left_position;
 
-                destination_iter
-                    .zip(left_iter.zip(a_arr_iter.zip(b_arr_iter)))
-                    .for_each(|(dst, (l, (a, b)))| {
-                        let l = ptr::read(l);
-                        let a = ptr::read(a);
-                        let b = ptr::read(b);
-
-                        *left_position += 1;
-                        *a_arr_position += 1;
-                        *b_arr_position += 1;
-
-                        ptr::write(dst, Float::mul_add(l, a, b));
-
-                        *destination_position += 1;
-                    });
+                    Float::mul_add(l, a, b)
+                }))
             }
+        } else {
+            let left = ManuallyDrop::new(self);
+            let a = ManuallyDrop::new(a);
+            let b = ManuallyDrop::new(b);
 
-            NumericArray::new(destination.into_inner())
+            NumericArray::from_iter(left.iter().zip(a.iter()).zip(b.iter()).map(|((l, a), b)| unsafe {
+                Float::mul_add(ptr::read(l), ptr::read(a), ptr::read(b)) //
+            }))
         }
     }
 
@@ -761,41 +765,58 @@ where
     }
 
     fn sin_cos(self) -> (Self, Self) {
-        unsafe {
-            let mut source = ArrayConsumer::new(self.0);
+        let mut sin_destination = ArrayBuilder::new();
+        let mut cos_destination = ArrayBuilder::new();
 
-            let (source_iter, source_position) = source.iter_position();
+        if mem::needs_drop::<T>() {
+            unsafe {
+                let mut source = ArrayConsumer::new(self.0);
 
-            let mut sin_destination = ArrayBuilder::new();
-            let mut cos_destination = ArrayBuilder::new();
+                let (source_iter, source_position) = source.iter_position();
 
-            {
-                let (sin_destination_iter, sin_destination_position) = sin_destination.iter_position();
-                let (cos_destination_iter, cos_destination_position) = cos_destination.iter_position();
+                {
+                    let (sin_destination_iter, sin_destination_position) = sin_destination.iter_position();
+                    let (cos_destination_iter, cos_destination_position) = cos_destination.iter_position();
+
+                    sin_destination_iter
+                        .zip(cos_destination_iter)
+                        .zip(source_iter)
+                        .for_each(|((sin, cos), src)| {
+                            let x = ptr::read(src);
+
+                            *source_position += 1;
+
+                            let (s, c) = Float::sin_cos(x);
+
+                            sin.write(s);
+                            cos.write(c);
+
+                            *sin_destination_position = *source_position;
+                            *cos_destination_position = *source_position;
+                        });
+                }
+            }
+        } else {
+            unsafe {
+                let (sin_destination_iter, _) = sin_destination.iter_position();
+                let (cos_destination_iter, _) = cos_destination.iter_position();
 
                 sin_destination_iter
                     .zip(cos_destination_iter)
-                    .zip(source_iter)
+                    .zip(self.iter())
                     .for_each(|((sin, cos), src)| {
-                        let x = ptr::read(src);
+                        let (s, c) = Float::sin_cos(ptr::read(src));
 
-                        *source_position += 1;
-
-                        let (s, c) = Float::sin_cos(x);
-
-                        ptr::write(sin, s);
-                        ptr::write(cos, c);
-
-                        *sin_destination_position += 1;
-                        *cos_destination_position += 1;
+                        sin.write(s);
+                        cos.write(c);
                     });
             }
-
-            (
-                NumericArray::new(sin_destination.into_inner()),
-                NumericArray::new(cos_destination.into_inner()),
-            )
         }
+
+        (
+            NumericArray::new(unsafe { sin_destination.assume_init() }),
+            NumericArray::new(unsafe { cos_destination.assume_init() }),
+        )
     }
 
     fn exp_m1(self) -> Self {

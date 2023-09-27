@@ -23,14 +23,14 @@
 //! use numeric_array::NumericArray;
 //!
 //! fn main() {
-//!     let a = narr![f32; 1, 2, 3, 4];
-//!     let b = narr![f32; 5, 6, 7, 8];
-//!     let c = narr![f32; 9, 1, 2, 3];
+//!     let a = narr![1.0, 2.0, 3.0, 4.0];
+//!     let b = narr![5.0, 6.0, 7.0, 8.0];
+//!     let c = narr![9.0, 1.0, 2.0, 3.0];
 //!
 //!     // Compiles to a single vfmadd213ps instruction on my machine
 //!     let d = a.mul_add(b, c);
 //!
-//!     assert_eq!(d, narr![f32; 14, 13, 23, 35]);
+//!     assert_eq!(d, narr![14.0, 13.0, 23.0, 35.0]);
 //! }
 //! ```
 //!
@@ -88,7 +88,7 @@ pub mod simd;
 /// For example, adding together four-element `NumericArray`'s will result
 /// in a single SIMD instruction for all elements at once.
 #[repr(transparent)]
-pub struct NumericArray<T, N: ArrayLength<T>>(GenericArray<T, N>);
+pub struct NumericArray<T, N: ArrayLength>(GenericArray<T, N>);
 
 /// Sugar for `NumericArray::new(arr![...])`
 ///
@@ -105,7 +105,7 @@ macro_rules! narr {
     }
 }
 
-unsafe impl<T, N: ArrayLength<T>> GenericSequence<T> for NumericArray<T, N> {
+unsafe impl<T, N: ArrayLength> GenericSequence<T> for NumericArray<T, N> {
     type Length = N;
     type Sequence = Self;
 
@@ -149,13 +149,13 @@ impl<T> DerefMut for NumericConstant<T> {
     }
 }
 
-impl<T: Debug, N: ArrayLength<T>> Debug for NumericArray<T, N> {
+impl<T: Debug, N: ArrayLength> Debug for NumericArray<T, N> {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         f.debug_tuple("NumericArray").field(&self.0).finish()
     }
 }
 
-impl<X, T, N: ArrayLength<T>> From<X> for NumericArray<T, N>
+impl<X, T, N: ArrayLength> From<X> for NumericArray<T, N>
 where
     X: Into<GenericArray<T, N>>,
 {
@@ -164,15 +164,15 @@ where
     }
 }
 
-impl<T: Clone, N: ArrayLength<T>> Clone for NumericArray<T, N> {
+impl<T: Clone, N: ArrayLength> Clone for NumericArray<T, N> {
     fn clone(&self) -> NumericArray<T, N> {
         NumericArray(self.0.clone())
     }
 }
 
-impl<T: Copy, N: ArrayLength<T>> Copy for NumericArray<T, N> where N::ArrayType: Copy {}
+impl<T: Copy, N: ArrayLength> Copy for NumericArray<T, N> where N::ArrayType<T>: Copy {}
 
-impl<T, N: ArrayLength<T>> Deref for NumericArray<T, N> {
+impl<T, N: ArrayLength> Deref for NumericArray<T, N> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
@@ -180,13 +180,13 @@ impl<T, N: ArrayLength<T>> Deref for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> DerefMut for NumericArray<T, N> {
+impl<T, N: ArrayLength> DerefMut for NumericArray<T, N> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
     }
 }
 
-impl<T, U, N: ArrayLength<T> + ArrayLength<U>> PartialEq<NumericArray<U, N>> for NumericArray<T, N>
+impl<T, U, N: ArrayLength> PartialEq<NumericArray<U, N>> for NumericArray<T, N>
 where
     T: PartialEq<U>,
 {
@@ -195,7 +195,7 @@ where
     }
 }
 
-impl<T, U, N: ArrayLength<T> + ArrayLength<U>> PartialEq<GenericArray<U, N>> for NumericArray<T, N>
+impl<T, U, N: ArrayLength> PartialEq<GenericArray<U, N>> for NumericArray<T, N>
 where
     T: PartialEq<U>,
 {
@@ -204,9 +204,9 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> cmp::Eq for NumericArray<T, N> where T: cmp::Eq {}
+impl<T, N: ArrayLength> cmp::Eq for NumericArray<T, N> where T: cmp::Eq {}
 
-impl<T, N: ArrayLength<T>> PartialOrd<Self> for NumericArray<T, N>
+impl<T, N: ArrayLength> PartialOrd<Self> for NumericArray<T, N>
 where
     T: PartialOrd,
 {
@@ -236,7 +236,7 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> PartialOrd<GenericArray<T, N>> for NumericArray<T, N>
+impl<T, N: ArrayLength> PartialOrd<GenericArray<T, N>> for NumericArray<T, N>
 where
     T: PartialOrd,
 {
@@ -266,7 +266,7 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> cmp::Ord for NumericArray<T, N>
+impl<T, N: ArrayLength> cmp::Ord for NumericArray<T, N>
 where
     T: cmp::Ord,
 {
@@ -276,7 +276,7 @@ where
     }
 }
 
-impl<T, N: ArrayLength<T>> NumericArray<T, N> {
+impl<T, N: ArrayLength> NumericArray<T, N> {
     /// Creates a new `NumericArray` instance from a `GenericArray` instance.
     ///
     /// Example:
@@ -289,7 +289,7 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
     /// use numeric_array::NumericArray;
     ///
     /// fn main() {
-    ///     let arr = NumericArray::new(arr![i32; 1, 2, 3, 4]);
+    ///     let arr = NumericArray::new(arr![1, 2, 3, 4]);
     ///
     ///     println!("{:?}", arr); // Prints 'NumericArray([1, 2, 3, 4])'
     /// }
@@ -304,7 +304,7 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
     /// Example:
     ///
     /// ```ignore
-    /// let a = NumericArray::new(arr![i32; 5, 5, 5, 5]);
+    /// let a = NumericArray::new(arr![5, 5, 5, 5]);
     /// let b = NumericArray::splat(5);
     ///
     /// assert_eq!(a, b);
@@ -318,10 +318,7 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
     }
 
     /// Convert all elements of the `NumericArray` to another `NumericArray` using `From`
-    pub fn convert<U: From<T>>(self) -> NumericArray<U, N>
-    where
-        N: ArrayLength<U>,
-    {
+    pub fn convert<U: From<T>>(self) -> NumericArray<U, N> {
         self.0.map(From::from).into()
     }
 
@@ -338,19 +335,19 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
     }
 
     /// Get mutable reference to underlying `GenericArray` instance.
-    #[inline]
+    #[inline(always)]
     pub fn as_mut_array(&mut self) -> &mut GenericArray<T, N> {
         &mut self.0
     }
 
     /// Extracts a slice containing the entire array.
-    #[inline]
+    #[inline(always)]
     pub fn as_slice(&self) -> &[T] {
         &self.0
     }
 
     /// Extracts a mutable slice containing the entire array.
-    #[inline]
+    #[inline(always)]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         &mut self.0
     }
@@ -358,7 +355,7 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
     /// Converts slice to a numeric array reference with inferred length;
     ///
     /// Length of the slice must be equal to the length of the array.
-    #[inline]
+    #[inline(always)]
     pub fn from_slice(slice: &[T]) -> &NumericArray<T, N> {
         slice.into()
     }
@@ -366,7 +363,7 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
     /// Converts mutable slice to a mutable numeric array reference
     ///
     /// Length of the slice must be equal to the length of the array.
-    #[inline]
+    #[inline(always)]
     pub fn from_mut_slice(slice: &mut [T]) -> &mut NumericArray<T, N> {
         slice.into()
     }
@@ -375,10 +372,10 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
 use core::ops::Sub;
 use typenum::{bit::B1 as True, Diff, IsGreaterOrEqual};
 
-impl<T, N: ArrayLength<T>> NumericArray<T, N> {
+impl<T, N: ArrayLength> NumericArray<T, N> {
     /// Offset the numeric array and cast it into a shorter array
     #[inline(always)]
-    pub fn offset<V: ArrayLength<T>, O: ArrayLength<T>>(&self) -> &NumericArray<T, V>
+    pub fn offset<V: ArrayLength, O: ArrayLength>(&self) -> &NumericArray<T, V>
     where
         N: Sub<O>,
         Diff<N, O>: IsGreaterOrEqual<V, Output = True>,
@@ -388,7 +385,7 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
 
     /// Offset the numeric array and cast it into a shorter array
     #[inline(always)]
-    pub fn offset_mut<V: ArrayLength<T>, O: ArrayLength<T>>(&mut self) -> &mut NumericArray<T, V>
+    pub fn offset_mut<V: ArrayLength, O: ArrayLength>(&mut self) -> &mut NumericArray<T, V>
     where
         N: Sub<O>,
         Diff<N, O>: IsGreaterOrEqual<V, Output = True>,
@@ -397,11 +394,11 @@ impl<T, N: ArrayLength<T>> NumericArray<T, N> {
     }
 }
 
-impl<'a, T, N: ArrayLength<T>> From<&'a [T]> for &'a NumericArray<T, N> {
+impl<'a, T, N: ArrayLength> From<&'a [T]> for &'a NumericArray<T, N> {
     /// Converts slice to a numeric array reference with inferred length;
     ///
     /// Length of the slice must be equal to the length of the array.
-    #[inline]
+    #[inline(always)]
     fn from(slice: &[T]) -> &NumericArray<T, N> {
         debug_assert_eq!(slice.len(), N::to_usize());
 
@@ -409,11 +406,11 @@ impl<'a, T, N: ArrayLength<T>> From<&'a [T]> for &'a NumericArray<T, N> {
     }
 }
 
-impl<'a, T, N: ArrayLength<T>> From<&'a mut [T]> for &'a mut NumericArray<T, N> {
+impl<'a, T, N: ArrayLength> From<&'a mut [T]> for &'a mut NumericArray<T, N> {
     /// Converts mutable slice to a mutable numeric array reference
     ///
     /// Length of the slice must be equal to the length of the array.
-    #[inline]
+    #[inline(always)]
     fn from(slice: &mut [T]) -> &mut NumericArray<T, N> {
         debug_assert_eq!(slice.len(), N::to_usize());
 
@@ -421,31 +418,34 @@ impl<'a, T, N: ArrayLength<T>> From<&'a mut [T]> for &'a mut NumericArray<T, N> 
     }
 }
 
-impl<T, N: ArrayLength<T>> AsRef<[T]> for NumericArray<T, N> {
+impl<T, N: ArrayLength> AsRef<[T]> for NumericArray<T, N> {
+    #[inline(always)]
     fn as_ref(&self) -> &[T] {
         self
     }
 }
 
-impl<T, N: ArrayLength<T>> Borrow<[T]> for NumericArray<T, N> {
+impl<T, N: ArrayLength> Borrow<[T]> for NumericArray<T, N> {
+    #[inline(always)]
     fn borrow(&self) -> &[T] {
         self
     }
 }
 
-impl<T, N: ArrayLength<T>> AsMut<[T]> for NumericArray<T, N> {
+impl<T, N: ArrayLength> AsMut<[T]> for NumericArray<T, N> {
+    #[inline(always)]
     fn as_mut(&mut self) -> &mut [T] {
         self
     }
 }
 
-impl<T, N: ArrayLength<T>> BorrowMut<[T]> for NumericArray<T, N> {
+impl<T, N: ArrayLength> BorrowMut<[T]> for NumericArray<T, N> {
     fn borrow_mut(&mut self) -> &mut [T] {
         self
     }
 }
 
-impl<T, N: ArrayLength<T>> Index<usize> for NumericArray<T, N> {
+impl<T, N: ArrayLength> Index<usize> for NumericArray<T, N> {
     type Output = T;
 
     #[inline(always)]
@@ -454,14 +454,14 @@ impl<T, N: ArrayLength<T>> Index<usize> for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> IndexMut<usize> for NumericArray<T, N> {
+impl<T, N: ArrayLength> IndexMut<usize> for NumericArray<T, N> {
     #[inline(always)]
     fn index_mut(&mut self, index: usize) -> &mut T {
         self.0.index_mut(index)
     }
 }
 
-impl<T, N: ArrayLength<T>> Index<Range<usize>> for NumericArray<T, N> {
+impl<T, N: ArrayLength> Index<Range<usize>> for NumericArray<T, N> {
     type Output = [T];
 
     #[inline(always)]
@@ -470,14 +470,14 @@ impl<T, N: ArrayLength<T>> Index<Range<usize>> for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> IndexMut<Range<usize>> for NumericArray<T, N> {
+impl<T, N: ArrayLength> IndexMut<Range<usize>> for NumericArray<T, N> {
     #[inline(always)]
     fn index_mut(&mut self, index: Range<usize>) -> &mut [T] {
         self.0.index_mut(index)
     }
 }
 
-impl<T, N: ArrayLength<T>> Index<RangeTo<usize>> for NumericArray<T, N> {
+impl<T, N: ArrayLength> Index<RangeTo<usize>> for NumericArray<T, N> {
     type Output = [T];
 
     #[inline(always)]
@@ -486,14 +486,14 @@ impl<T, N: ArrayLength<T>> Index<RangeTo<usize>> for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> IndexMut<RangeTo<usize>> for NumericArray<T, N> {
+impl<T, N: ArrayLength> IndexMut<RangeTo<usize>> for NumericArray<T, N> {
     #[inline(always)]
     fn index_mut(&mut self, index: RangeTo<usize>) -> &mut [T] {
         self.0.index_mut(index)
     }
 }
 
-impl<T, N: ArrayLength<T>> Index<RangeFrom<usize>> for NumericArray<T, N> {
+impl<T, N: ArrayLength> Index<RangeFrom<usize>> for NumericArray<T, N> {
     type Output = [T];
 
     #[inline(always)]
@@ -502,14 +502,14 @@ impl<T, N: ArrayLength<T>> Index<RangeFrom<usize>> for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> IndexMut<RangeFrom<usize>> for NumericArray<T, N> {
+impl<T, N: ArrayLength> IndexMut<RangeFrom<usize>> for NumericArray<T, N> {
     #[inline(always)]
     fn index_mut(&mut self, index: RangeFrom<usize>) -> &mut [T] {
         self.0.index_mut(index)
     }
 }
 
-impl<T, N: ArrayLength<T>> Index<RangeFull> for NumericArray<T, N> {
+impl<T, N: ArrayLength> Index<RangeFull> for NumericArray<T, N> {
     type Output = [T];
 
     #[inline(always)]
@@ -518,43 +518,45 @@ impl<T, N: ArrayLength<T>> Index<RangeFull> for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> IndexMut<RangeFull> for NumericArray<T, N> {
+impl<T, N: ArrayLength> IndexMut<RangeFull> for NumericArray<T, N> {
     #[inline(always)]
     fn index_mut(&mut self, _index: RangeFull) -> &mut [T] {
         self
     }
 }
 
-impl<'a, T, N: ArrayLength<T>> IntoIterator for &'a NumericArray<T, N> {
+impl<'a, T, N: ArrayLength> IntoIterator for &'a NumericArray<T, N> {
     type Item = &'a T;
     type IntoIter = slice::Iter<'a, T>;
 
-    #[inline]
+    #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
 
-impl<'a, T, N: ArrayLength<T>> IntoIterator for &'a mut NumericArray<T, N> {
+impl<'a, T, N: ArrayLength> IntoIterator for &'a mut NumericArray<T, N> {
     type Item = &'a mut T;
     type IntoIter = slice::IterMut<'a, T>;
 
-    #[inline]
+    #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
         self.iter_mut()
     }
 }
 
-impl<T, N: ArrayLength<T>> IntoIterator for NumericArray<T, N> {
+impl<T, N: ArrayLength> IntoIterator for NumericArray<T, N> {
     type Item = T;
     type IntoIter = GenericArrayIter<T, N>;
 
+    #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
 }
 
-impl<T, N: ArrayLength<T>> FromIterator<T> for NumericArray<T, N> {
+impl<T, N: ArrayLength> FromIterator<T> for NumericArray<T, N> {
+    #[inline(always)]
     fn from_iter<I>(iter: I) -> Self
     where
         I: IntoIterator<Item = T>,
@@ -563,10 +565,11 @@ impl<T, N: ArrayLength<T>> FromIterator<T> for NumericArray<T, N> {
     }
 }
 
-impl<T, N: ArrayLength<T>> Default for NumericArray<T, N>
+impl<T, N: ArrayLength> Default for NumericArray<T, N>
 where
     T: Default,
 {
+    #[inline(always)]
     fn default() -> Self {
         NumericArray(GenericArray::default())
     }
@@ -586,30 +589,30 @@ pub mod tests {
 
     #[test]
     fn test_ops() {
-        let a = black_box(narr![i32; 1, 3, 5, 7]);
-        let b = black_box(narr![i32; 2, 4, 6, 8]);
+        let a = black_box(narr![1, 3, 5, 7]);
+        let b = black_box(narr![2, 4, 6, 8]);
 
         let c = a + b;
         let d = c * nconstant!(black_box(5));
         let e = d << nconstant!(1_usize);
 
-        assert_eq!(e, narr![i32; 30, 70, 110, 150])
+        assert_eq!(e, narr![30, 70, 110, 150])
     }
 
     #[test]
     fn test_constants() {
-        let a = black_box(narr![i32; 1, 3, 5, 7]);
-        let b = black_box(narr![i32; 2, 4, 6, 8]);
+        let a = black_box(narr![1, 3, 5, 7]);
+        let b = black_box(narr![2, 4, 6, 8]);
 
         let c = a + b * nconstant!(2);
 
-        assert_eq!(c, narr![i32; 5, 11, 17, 23]);
+        assert_eq!(c, narr![5, 11, 17, 23]);
     }
 
     #[test]
     fn test_floats() {
-        let a = black_box(narr![f32; 1.0, 3.0, 5.0, 7.0]);
-        let b = black_box(narr![f32; 2.0, 4.0, 6.0, 8.0]);
+        let a = black_box(narr![1.0f32, 3.0, 5.0, 7.0]);
+        let b = black_box(narr![2.0f32, 4.0, 6.0, 8.0]);
 
         let c = a + b;
 
@@ -620,8 +623,8 @@ pub mod tests {
     fn test_other() {
         use num_traits::Saturating;
 
-        let a = black_box(narr![i32; 1, 3, 5, 7]);
-        let b = black_box(narr![i32; 2, 4, 6, 8]);
+        let a = black_box(narr![1, 3, 5, 7]);
+        let b = black_box(narr![2, 4, 6, 8]);
 
         let c = a.saturating_add(b);
 
@@ -632,12 +635,12 @@ pub mod tests {
     fn test_atan2() {
         use num_traits::Float;
 
-        let a = black_box(narr![f32; 1, 2, 3, 4]);
-        let b = black_box(narr![f32; 2, 3, 4, 5]);
+        let a = black_box(narr![1.0f32, 2.0, 3.0, 4.0]);
+        let b = black_box(narr![2.0f32, 3.0, 4.0, 5.0]);
 
         let c = a.atan2(b);
 
-        assert_eq!(c, narr![f32; 0.4636476, 0.5880026, 0.6435011, 0.67474097]);
+        assert_eq!(c, narr![0.4636476, 0.5880026, 0.6435011, 0.67474097]);
     }
 
     #[test]
@@ -648,13 +651,13 @@ pub mod tests {
         let nan = f32::nan();
         let infinity = f32::infinity();
 
-        let any_nan = black_box(narr![f32; 1, 2, nan, 0]);
-        let any_infinite = black_box(narr![f32; 1, infinity, 2, 3]);
-        let any_mixed = black_box(narr![f32; 1, infinity, nan, 0]);
-        let all_normal = black_box(narr![f32; 1, 2, 3, 4]);
-        let all_zero = black_box(narr![f32; 0, 0, 0, 0]);
+        let any_nan = black_box(narr![1.0, 2.0, nan, 0.0]);
+        let any_infinite = black_box(narr![1.0, infinity, 2.0, 3.0]);
+        let any_mixed = black_box(narr![1.0, infinity, nan, 0.0]);
+        let all_normal = black_box(narr![1.0, 2.0, 3.0, 4.0]);
+        let all_zero = black_box(narr![0.0, 0.0, 0.0, 0.0]);
 
-        let non_zero = black_box(narr![f32; 0, 1, 0, 0]);
+        let non_zero = black_box(narr![0.0f32, 1.0, 0.0, 0.0]);
 
         assert_eq!(any_nan.classify(), FpCategory::Nan);
         assert_eq!(any_mixed.classify(), FpCategory::Nan);
@@ -664,18 +667,18 @@ pub mod tests {
 
         assert_eq!(non_zero.classify(), FpCategory::Normal);
 
-        assert_eq!(any_nan.is_infinite(), false);
-        assert_eq!(any_mixed.is_infinite(), true);
-        assert_eq!(any_nan.is_nan(), true);
-        assert_eq!(any_mixed.is_nan(), true);
-        assert_eq!(any_infinite.is_nan(), false);
+        assert!(!any_nan.is_infinite());
+        assert!(any_mixed.is_infinite());
+        assert!(any_nan.is_nan());
+        assert!(any_mixed.is_nan());
+        assert!(!any_infinite.is_nan());
     }
 
     #[test]
     fn test_tanh() {
         use num_traits::Float;
 
-        let a = black_box(narr![f32; 1, 2, 3, 4]);
+        let a = black_box(narr![1.0f32, 2.0, 3.0, 4.0]);
 
         black_box(a.tanh());
     }
@@ -684,28 +687,28 @@ pub mod tests {
     pub fn test_madd() {
         use num_traits::Float;
 
-        let a = black_box(narr![f32; 1, 2, 3, 4]);
-        let b = black_box(narr![f32; 5, 6, 7, 8]);
-        let c = black_box(narr![f32; 9, 1, 2, 3]);
+        let a = black_box(narr![1.0f32, 2.0, 3.0, 4.0]);
+        let b = black_box(narr![5.0f32, 6.0, 7.0, 8.0]);
+        let c = black_box(narr![9.0f32, 1.0, 2.0, 3.0]);
 
         let d = a.mul_add(b, c);
 
-        assert_eq!(d, narr![f32; 14, 13, 23, 35]);
+        assert_eq!(d, narr![14.0, 13.0, 23.0, 35.0]);
     }
 
     #[test]
     #[no_mangle]
     pub fn test_select() {
-        use simd::Select;
+        use crate::simd::Select;
 
-        let mask = black_box(narr![bool; true, false, false, true]);
+        let mask = black_box(narr![true, false, false, true]);
 
-        let a = black_box(narr![i32; 1, 2, 3, 4]);
-        let b = black_box(narr![i32; 5, 6, 7, 8]);
+        let a = black_box(narr![1, 2, 3, 4]);
+        let b = black_box(narr![5, 6, 7, 8]);
 
         // Compiles to vblendvps
         let selected = mask.select(a, b);
 
-        assert_eq!(selected, narr![i32; 1, 6, 7, 4]);
+        assert_eq!(selected, narr![1, 6, 7, 4]);
     }
 }
