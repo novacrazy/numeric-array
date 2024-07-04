@@ -1,7 +1,14 @@
+//! # `numeric-array`
+//!
+//! [![crates.io](https://img.shields.io/crates/v/numeric-array.svg)](https://crates.io/crates/numeric-array)
+//! [![Documentation](https://docs.rs/numeric-array/badge.svg)](https://docs.rs/numeric-array)
+//! [![MIT/Apache-2 licensed](https://img.shields.io/crates/l/numeric-array.svg)](./LICENSE-Apache)
+//!
 //! `numeric-array` is a wrapper around
-//! [`generic-array`](https://github.com/fizyk20/generic-array) that adds
-//! efficient numeric trait implementations, often times making use of
-//! SIMD instructions and compile-time evaluations.
+//! [`generic-array`](https://github.com/fizyk20/generic-array)
+//! that adds efficient numeric trait implementations, designed
+//! to encourage LLVM to autovectorize expressions into SIMD
+//! instructions and perform compile-time evaluation.
 //!
 //! All stable `core::ops` traits are implemented for `NumericArray` itself,
 //! plus the thin `NumericConstant` type, which is required to
@@ -13,14 +20,8 @@
 //! Example:
 //!
 //! ```rust
-//! extern crate num_traits;
-//! #[macro_use]
-//! extern crate generic_array;
-//! #[macro_use]
-//! extern crate numeric_array;
-//!
 //! use num_traits::Float;
-//! use numeric_array::NumericArray;
+//! use numeric_array::{NumericArray, narr};
 //!
 //! # #[cfg(feature = "std")]
 //! fn main() {
@@ -38,14 +39,12 @@
 //! ```
 //!
 //! When used with `RUSTFLAGS = "-C opt-level=3 -C target-cpu=native"`,
-//! then Rust and LLVM are smart enough to turn almost all operations
+//! then Rust and LLVM are smart enough to autovectorize almost all operations
 //! into SIMD instructions, or even just evaluate them at compile time.
-//! The above example is actually evaluated at compile time,
-//! so if you were to view the assembly it would show the result only.
-//! Rust is pretty smart.
+//! The above example is actually evaluated at compile time, so if you
+//! were to view the assembly it would show the result only.
 //!
-//! Therefore, this is ideal for situations where simple component-wise
-//! operations are required for arrays.
+//! This is ideal for situations where simple component-wise operations are required for arrays.
 //!
 
 #![deny(missing_docs)]

@@ -18,7 +18,7 @@ pub trait Geometric<T> {
 
 impl<T, N: ArrayLength> Geometric<T> for NumericArray<T, N>
 where
-    T: Add<Output = T> + Mul<Output = T> + Zero + Copy,
+    T: Mul<Output = T> + Zero + Copy,
 {
     #[inline(always)]
     fn scalar_product(&self, other: &Self) -> T {

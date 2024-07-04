@@ -1,5 +1,5 @@
 [package]
-authors = ["Aaron Trent <novacrazy@gmail.com>"]
+authors = ["novacrazy <novacrazy@gmail.com>"]
 name = "numeric-array"
 description = "Wrapper around generic-array that adds efficient numeric trait implementations"
 repository = "https://github.com/novacrazy/numeric-array"
@@ -7,9 +7,9 @@ documentation = "https://docs.rs/numeric-array"
 version = "0.6.1"
 readme = "README.md"
 keywords = ["generic", "array", "numeric", "simd"]
-include = ["src/**/*", "Cargo.toml"]
-license = "MIT"
-categories = ["data-structures"]
+include = ["src/**/*", "LICENSE-*", "README.md"]
+license = "MIT OR Apache-2.0"
+categories = ["data-structures", "no-std"]
 edition = "2021"
 
 [dependencies]
