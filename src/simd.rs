@@ -6,7 +6,7 @@ use core::mem::ManuallyDrop;
 
 use super::*;
 
-use generic_array::internals::{ArrayBuilder, ArrayConsumer};
+use generic_array::internals::ArrayConsumer;
 
 /// Selects elements from one array or another using `self` as a mask.
 pub unsafe trait Select<T, N: ArrayLength> {
@@ -27,6 +27,8 @@ pub unsafe trait Select<T, N: ArrayLength> {
     ///
     /// assert_eq!(selected, narr![i32; 1, 6, 7, 4]);
     /// ```
+    ///
+    /// NOTE: The default implementation of this will clamp the index values to the length of the array.
     fn select(self, true_values: NumericArray<T, N>, false_values: NumericArray<T, N>) -> NumericArray<T, N>;
 }
 
@@ -36,14 +38,17 @@ pub unsafe trait Permute<T, N: ArrayLength> {
     fn permute(self, values: &NumericArray<T, N>) -> NumericArray<T, N>;
 }
 
-unsafe impl<T, N: ArrayLength> Permute<T, N> for NumericArray<usize, N>
+unsafe impl<T, I, N: ArrayLength> Permute<T, N> for NumericArray<I, N>
 where
     T: Clone,
+    I: Copy + Into<usize>,
 {
     #[inline]
     fn permute(self, values: &NumericArray<T, N>) -> NumericArray<T, N> {
         NumericArray::from_iter(self.iter().map(|index| unsafe {
-            values.get_unchecked(*index).clone() //
+            let index: usize = (*index).into();
+
+            values.get_unchecked(index.min(N::to_usize())).clone()
         }))
     }
 }
@@ -74,14 +79,15 @@ unsafe impl<T, N: ArrayLength> Select<T, N> for NumericArray<bool, N> {
             }
         } else {
             let true_values = ManuallyDrop::new(true_values);
-            let false_values = ManuallyDrop::new(false_values);
+            let mut values = ManuallyDrop::new(false_values);
 
-            NumericArray::from_iter(self.iter().zip(true_values.iter().zip(false_values.iter())).map(|(mask, (t, f))| unsafe {
-                match *mask {
-                    true => ptr::read(t),
-                    false => ptr::read(f),
+            for (mask, (v, t)) in self.iter().zip(values.iter_mut().zip(true_values.iter())) {
+                if *mask {
+                    unsafe { ptr::copy_nonoverlapping(t, v, 1) };
                 }
-            }))
+            }
+
+            ManuallyDrop::into_inner(values)
         }
     }
 }
