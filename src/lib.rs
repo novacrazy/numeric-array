@@ -22,6 +22,7 @@
 //! use num_traits::Float;
 //! use numeric_array::NumericArray;
 //!
+//! # #[cfg(feature = "std")]
 //! fn main() {
 //!     let a = narr![1.0, 2.0, 3.0, 4.0];
 //!     let b = narr![5.0, 6.0, 7.0, 8.0];
@@ -32,6 +33,8 @@
 //!
 //!     assert_eq!(d, narr![14.0, 13.0, 23.0, 35.0]);
 //! }
+//!
+//! # #[cfg(not(feature = "std"))] fn main() {}
 //! ```
 //!
 //! When used with `RUSTFLAGS = "-C opt-level=3 -C target-cpu=native"`,
@@ -50,8 +53,7 @@
 
 extern crate num_traits;
 
-#[cfg_attr(test, macro_use)]
-extern crate generic_array;
+pub extern crate generic_array;
 
 pub use generic_array::{typenum, ArrayLength};
 
@@ -101,7 +103,7 @@ pub struct NumericArray<T, N: ArrayLength>(GenericArray<T, N>);
 #[macro_export]
 macro_rules! narr {
     ($($t:tt)*) => {
-        $crate::NumericArray::new(arr!($($t)*))
+        $crate::NumericArray::new($crate::generic_array::arr!($($t)*))
     }
 }
 
@@ -577,6 +579,8 @@ where
 
 #[cfg(test)]
 pub mod tests {
+    use num_traits::float::FloatCore;
+
     // This stops the compiler from optimizing based on known data, only data types.
     #[inline(never)]
     pub fn black_box<T>(val: T) -> T {
@@ -631,6 +635,7 @@ pub mod tests {
         black_box(c);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_atan2() {
         use num_traits::Float;
@@ -646,7 +651,6 @@ pub mod tests {
     #[test]
     fn test_classify() {
         use core::num::FpCategory;
-        use num_traits::Float;
 
         let nan = f32::nan();
         let infinity = f32::infinity();
@@ -674,6 +678,7 @@ pub mod tests {
         assert!(!any_infinite.is_nan());
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_tanh() {
         use num_traits::Float;
@@ -683,6 +688,7 @@ pub mod tests {
         black_box(a.tanh());
     }
 
+    #[cfg(feature = "std")]
     #[test]
     pub fn test_madd() {
         use num_traits::Float;

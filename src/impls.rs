@@ -22,7 +22,7 @@ use core::mem::{self, ManuallyDrop};
 use core::num::FpCategory;
 use core::ops::*;
 
-use num_traits::*;
+use num_traits::{float::FloatCore, *};
 
 use generic_array::internals::{ArrayBuilder, ArrayConsumer};
 
@@ -526,122 +526,210 @@ where
     }
 }
 
-impl<T, N: ArrayLength> Float for NumericArray<T, N>
-where
-    T: Float + Copy,
-    Self: Copy,
-{
-    #[inline]
-    fn nan() -> Self {
-        Self::splat(Float::nan())
-    }
+macro_rules! impl_float {
+    ($float:ident { $($extra:tt)* }) => {
+        impl<T, N: ArrayLength> $float for NumericArray<T, N>
+        where
+            T: $float,
+            Self: Copy,
+        {
+            $($extra)*
 
-    #[inline]
-    fn infinity() -> Self {
-        Self::splat(Float::infinity())
-    }
+            #[inline]
+            fn nan() -> Self {
+                Self::splat($float::nan())
+            }
 
-    #[inline]
-    fn neg_infinity() -> Self {
-        Self::splat(Float::neg_infinity())
-    }
+            #[inline]
+            fn infinity() -> Self {
+                Self::splat($float::infinity())
+            }
 
-    #[inline]
-    fn neg_zero() -> Self {
-        Self::splat(Float::neg_zero())
-    }
+            #[inline]
+            fn neg_infinity() -> Self {
+                Self::splat($float::neg_infinity())
+            }
 
-    #[inline]
-    fn min_value() -> Self {
-        Self::splat(Float::min_value())
-    }
+            #[inline]
+            fn neg_zero() -> Self {
+                Self::splat($float::neg_zero())
+            }
 
-    #[inline]
-    fn min_positive_value() -> Self {
-        Self::splat(Float::min_positive_value())
-    }
+            #[inline]
+            fn min_value() -> Self {
+                Self::splat($float::min_value())
+            }
 
-    #[inline]
-    fn max_value() -> Self {
-        Self::splat(Float::max_value())
-    }
+            #[inline]
+            fn min_positive_value() -> Self {
+                Self::splat($float::min_positive_value())
+            }
 
-    fn is_nan(self) -> bool {
-        self.iter().any(|x| Float::is_nan(*x))
-    }
+            #[inline]
+            fn max_value() -> Self {
+                Self::splat($float::max_value())
+            }
 
-    fn is_infinite(self) -> bool {
-        self.iter().any(|x| Float::is_infinite(*x))
-    }
+            #[inline]
+            fn is_nan(self) -> bool {
+                self.iter().any(|x| $float::is_nan(*x))
+            }
 
-    fn is_finite(self) -> bool {
-        self.iter().all(|x| Float::is_finite(*x))
-    }
+            #[inline]
+            fn is_infinite(self) -> bool {
+                self.iter().any(|x| $float::is_infinite(*x))
+            }
 
-    fn is_normal(self) -> bool {
-        self.iter().all(|x| Float::is_normal(*x))
-    }
+            #[inline]
+            fn is_finite(self) -> bool {
+                self.iter().all(|x| $float::is_finite(*x))
+            }
 
-    fn classify(self) -> FpCategory {
-        let mut ret = FpCategory::Zero;
+            #[inline]
+            fn is_normal(self) -> bool {
+                self.iter().all(|x| $float::is_normal(*x))
+            }
 
-        for x in self.iter() {
-            match Float::classify(*x) {
-                // If NaN is found, return NaN immediately
-                FpCategory::Nan => return FpCategory::Nan,
-                // If infinite, set infinite
-                FpCategory::Infinite => ret = FpCategory::Infinite,
-                // If Subnormal and not infinite, set subnormal
-                FpCategory::Subnormal if ret != FpCategory::Infinite => {
-                    ret = FpCategory::Subnormal;
+            #[inline]
+            fn epsilon() -> Self {
+                Self::splat($float::epsilon())
+            }
+
+            #[inline]
+            fn to_degrees(self) -> Self {
+                self.0.map($float::to_degrees).into()
+            }
+
+            #[inline]
+            fn to_radians(self) -> Self {
+                self.0.map($float::to_radians).into()
+            }
+
+            #[inline]
+            fn integer_decode(self) -> (u64, i16, i8) {
+                if N::to_usize() == 0 {
+                    (0, 0, 0)
+                } else {
+                    self.first().unwrap().integer_decode()
                 }
-                // If normal and zero, upgrade to normal
-                FpCategory::Normal if ret == FpCategory::Zero => {
-                    ret = FpCategory::Normal;
+            }
+
+            fn classify(self) -> FpCategory {
+                let mut ret = FpCategory::Zero;
+
+                for x in self.iter() {
+                    match $float::classify(*x) {
+                        // If NaN is found, return NaN immediately
+                        FpCategory::Nan => return FpCategory::Nan,
+                        // If infinite, set infinite
+                        FpCategory::Infinite => ret = FpCategory::Infinite,
+                        // If Subnormal and not infinite, set subnormal
+                        FpCategory::Subnormal if ret != FpCategory::Infinite => {
+                            ret = FpCategory::Subnormal;
+                        }
+                        // If normal and zero, upgrade to normal
+                        FpCategory::Normal if ret == FpCategory::Zero => {
+                            ret = FpCategory::Normal;
+                        }
+                        _ => {}
+                    }
                 }
-                _ => {}
+
+                ret
+            }
+
+            #[inline]
+            fn floor(self) -> Self {
+                self.0.map($float::floor).into()
+            }
+
+            #[inline]
+            fn ceil(self) -> Self {
+                self.0.map($float::ceil).into()
+            }
+
+            #[inline]
+            fn round(self) -> Self {
+                self.0.map($float::round).into()
+            }
+
+            #[inline]
+            fn trunc(self) -> Self {
+                self.0.map($float::trunc).into()
+            }
+
+            #[inline]
+            fn fract(self) -> Self {
+                self.0.map($float::fract).into()
+            }
+
+            #[inline]
+            fn abs(self) -> Self {
+                self.0.map($float::abs).into()
+            }
+
+            #[inline]
+            fn signum(self) -> Self {
+                self.0.map($float::signum).into()
+            }
+
+            #[inline]
+            fn is_sign_positive(self) -> bool {
+                self.iter().all(|x| $float::is_sign_positive(*x))
+            }
+
+            #[inline]
+            fn is_sign_negative(self) -> bool {
+                self.iter().any(|x| $float::is_sign_negative(*x))
+            }
+
+            #[inline]
+            fn max(self, other: Self) -> Self {
+                self.0.zip(other.0, $float::max).into()
+            }
+
+            #[inline]
+            fn min(self, other: Self) -> Self {
+                self.0.zip(other.0, $float::min).into()
+            }
+
+            #[inline]
+            fn recip(self) -> Self {
+                self.0.map($float::recip).into()
+            }
+
+            #[inline]
+            fn powi(self, n: i32) -> Self {
+                self.0.map(|x| $float::powi(x, n)).into()
+
+                // This was a prototype with the best performance that
+                // still fell short of whatever the compiler does, sadly.
+                //
+                // let mut e = n as i64;
+                // let mut x = self;
+                // let mut res = Self::one();
+                // if e < 0 {
+                //     x = x.recip();
+                //     e = -e;
+                // }
+                // while e != 0 {
+                //     if e & 1 != 0 {
+                //         res *= x;
+                //     }
+                //     e >>= 1;
+                //     x *= x;
+                // }
+                // res
             }
         }
+    };
+}
 
-        ret
-    }
+impl_float!(FloatCore {});
 
-    fn floor(self) -> Self {
-        self.0.map(Float::floor).into()
-    }
-
-    fn ceil(self) -> Self {
-        self.0.map(Float::ceil).into()
-    }
-
-    fn round(self) -> Self {
-        self.0.map(Float::round).into()
-    }
-
-    fn trunc(self) -> Self {
-        self.0.map(Float::trunc).into()
-    }
-
-    fn fract(self) -> Self {
-        self.0.map(Float::fract).into()
-    }
-
-    fn abs(self) -> Self {
-        self.0.map(Float::abs).into()
-    }
-
-    fn signum(self) -> Self {
-        self.0.map(Float::signum).into()
-    }
-
-    fn is_sign_positive(self) -> bool {
-        self.iter().all(|x| Float::is_sign_positive(*x))
-    }
-
-    fn is_sign_negative(self) -> bool {
-        self.iter().any(|x| Float::is_sign_negative(*x))
-    }
-
+#[cfg(feature = "std")]
+impl_float!(Float {
+    #[inline]
     fn mul_add(self, a: Self, b: Self) -> Self {
         if mem::needs_drop::<T>() {
             unsafe {
@@ -676,94 +764,97 @@ where
         }
     }
 
-    fn recip(self) -> Self {
-        self.0.map(Float::recip).into()
-    }
-
-    fn powi(self, n: i32) -> Self {
-        self.0.map(|x| Float::powi(x, n)).into()
-    }
-
+    #[inline]
     fn powf(self, n: Self) -> Self {
         self.0.zip(n.0, Float::powf).into()
     }
 
+    #[inline]
     fn sqrt(self) -> Self {
         self.0.map(Float::sqrt).into()
     }
 
+    #[inline]
     fn exp(self) -> Self {
         self.0.map(Float::exp).into()
     }
 
+    #[inline]
     fn exp2(self) -> Self {
         self.0.map(Float::exp2).into()
     }
 
+    #[inline]
     fn ln(self) -> Self {
         self.0.map(Float::ln).into()
     }
 
+    #[inline]
     fn log(self, base: Self) -> Self {
         self.0.zip(base.0, Float::log).into()
     }
 
+    #[inline]
     fn log2(self) -> Self {
         self.0.map(Float::log2).into()
     }
 
+    #[inline]
     fn log10(self) -> Self {
         self.0.map(Float::log10).into()
     }
 
-    fn max(self, other: Self) -> Self {
-        self.0.zip(other.0, Float::max).into()
-    }
-
-    fn min(self, other: Self) -> Self {
-        self.0.zip(other.0, Float::min).into()
-    }
-
+    #[inline]
     fn abs_sub(self, other: Self) -> Self {
         self.0.zip(other.0, Float::abs_sub).into()
     }
 
+    #[inline]
     fn cbrt(self) -> Self {
         self.0.map(Float::cbrt).into()
     }
 
+    #[inline]
     fn hypot(self, other: Self) -> Self {
         self.0.zip(other.0, Float::hypot).into()
     }
 
+    #[inline]
     fn sin(self) -> Self {
         self.0.map(Float::sin).into()
     }
 
+    #[inline]
     fn cos(self) -> Self {
         self.0.map(Float::cos).into()
     }
 
+    #[inline]
     fn tan(self) -> Self {
         self.0.map(Float::tan).into()
     }
 
+    #[inline]
     fn asin(self) -> Self {
         self.0.map(Float::asin).into()
     }
 
+    #[inline]
     fn acos(self) -> Self {
         self.0.map(Float::acos).into()
     }
 
+    #[inline]
     fn atan(self) -> Self {
         self.0.map(Float::atan).into()
     }
 
+    #[inline]
     fn atan2(self, other: Self) -> Self {
         self.0.zip(other.0, Float::atan2).into()
     }
 
+    #[inline]
     fn sin_cos(self) -> (Self, Self) {
         let mut sin_destination = ArrayBuilder::new();
         let mut cos_destination = ArrayBuilder::new();
@@ -819,56 +910,43 @@ where
         )
     }
 
+    #[inline]
     fn exp_m1(self) -> Self {
         self.0.map(Float::exp_m1).into()
     }
 
+    #[inline]
     fn ln_1p(self) -> Self {
         self.0.map(Float::ln_1p).into()
     }
 
+    #[inline]
     fn sinh(self) -> Self {
         self.0.map(Float::sinh).into()
     }
 
+    #[inline]
     fn cosh(self) -> Self {
         self.0.map(Float::cosh).into()
     }
 
+    #[inline]
     fn tanh(self) -> Self {
         self.0.map(Float::tanh).into()
     }
 
+    #[inline]
     fn asinh(self) -> Self {
         self.0.map(Float::asinh).into()
     }
 
+    #[inline]
     fn acosh(self) -> Self {
         self.0.map(Float::acosh).into()
     }
 
+    #[inline]
     fn atanh(self) -> Self {
         self.0.map(Float::atanh).into()
     }
-
-    fn integer_decode(self) -> (u64, i16, i8) {
-        if N::to_usize() == 0 {
-            (0, 0, 0)
-        } else {
-            self.first().unwrap().integer_decode()
-        }
-    }
-
-    #[inline]
-    fn epsilon() -> Self {
-        Self::splat(Float::epsilon())
-    }
-
-    fn to_degrees(self) -> Self {
-        self.0.map(Float::to_degrees).into()
-    }
-
-    fn to_radians(self) -> Self {
-        self.0.map(Float::to_radians).into()
-    }
-}
+});
