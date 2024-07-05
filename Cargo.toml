@@ -13,7 +13,7 @@ categories = ["data-structures", "no-std"]
 edition = "2021"
 
 [dependencies]
-generic-array = { version = "1.0", default-features = false, features = ["internals"] }
+generic-array = { version = "1.1.0", default-features = false, features = ["internals"] }
 num-traits = { version = "0.2", default-features = false }
 serde = { version = "1.0", optional = true, default-features = false }
 
