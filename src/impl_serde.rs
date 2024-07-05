@@ -7,7 +7,7 @@ use generic_array::{ArrayLength, GenericArray};
 
 use super::{NumericArray, NumericConstant};
 
-impl<T: Serialize, N: ArrayLength<T>> Serialize for NumericArray<T, N> {
+impl<T: Serialize, N: ArrayLength> Serialize for NumericArray<T, N> {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -17,7 +17,7 @@ impl<T: Serialize, N: ArrayLength<T>> Serialize for NumericArray<T, N> {
     }
 }
 
-impl<'de, T: Deserialize<'de>, N: ArrayLength<T>> Deserialize<'de> for NumericArray<T, N>
+impl<'de, T: Deserialize<'de>, N: ArrayLength> Deserialize<'de> for NumericArray<T, N>
 where
     T: Default,
 {
