@@ -24,7 +24,7 @@ use core::ops::*;
 
 use num_traits::{float::FloatCore, *};
 
-use generic_array::internals::{ArrayBuilder, ArrayConsumer};
+use generic_array::internals::{ArrayConsumer, IntrusiveArrayBuilder};
 
 macro_rules! impl_unary_ops {
     ($($op_trait:ident::$op:ident),*) => {
@@ -237,7 +237,8 @@ macro_rules! impl_checked_ops {
             {
                 fn $op(&self, rhs: &Self) -> Option<Self> {
                     unsafe {
-                        let mut builder = ArrayBuilder::new();
+                        let mut array = GenericArray::uninit();
+                        let mut builder = IntrusiveArrayBuilder::new(&mut array);
 
                         {
                             let (array_iter, position) = builder.iter_position();
@@ -252,7 +253,10 @@ macro_rules! impl_checked_ops {
                             }
                         }
 
-                        Some(NumericArray(builder.assume_init()))
+                        Some(NumericArray({
+                            builder.finish();
+                            IntrusiveArrayBuilder::array_assume_init(array)
+                        }))
                     }
                 }
             }
@@ -328,7 +332,8 @@ where
 {
     fn checked_shl(&self, rhs: u32) -> Option<Self> {
         unsafe {
-            let mut builder = ArrayBuilder::new();
+            let mut array = GenericArray::uninit();
+            let mut builder = IntrusiveArrayBuilder::new(&mut array);
 
             {
                 let (builder_iter, builder_position) = builder.iter_position();
@@ -343,7 +348,10 @@ where
                 }
             }
 
-            Some(NumericArray(builder.assume_init()))
+            Some(NumericArray({
+                builder.finish();
+                IntrusiveArrayBuilder::array_assume_init(array)
+            }))
         }
     }
 }
@@ -355,7 +363,8 @@ where
 {
     fn checked_shr(&self, rhs: u32) -> Option<Self> {
         unsafe {
-            let mut builder = ArrayBuilder::new();
+            let mut array = GenericArray::uninit();
+            let mut builder = IntrusiveArrayBuilder::new(&mut array);
 
             {
                 let (builder_iter, builder_position) = builder.iter_position();
@@ -370,7 +379,10 @@ where
                 }
             }
 
-            Some(NumericArray(builder.assume_init()))
+            Some(NumericArray({
+                builder.finish();
+                IntrusiveArrayBuilder::array_assume_init(array)
+            }))
         }
     }
 }
@@ -856,8 +868,11 @@ impl_float!(Float {
 
     #[inline]
     fn sin_cos(self) -> (Self, Self) {
-        let mut sin_destination = ArrayBuilder::new();
-        let mut cos_destination = ArrayBuilder::new();
+        let mut sin_array = GenericArray::uninit();
+        let mut cos_array = GenericArray::uninit();
+
+        let mut sin_destination = IntrusiveArrayBuilder::new(&mut sin_array);
+        let mut cos_destination = IntrusiveArrayBuilder::new(&mut cos_array);
 
         if mem::needs_drop::<T>() {
             unsafe {
@@ -905,8 +920,8 @@ impl_float!(Float {
         }
 
         (
-            NumericArray::new(unsafe { sin_destination.assume_init() }),
-            NumericArray::new(unsafe { cos_destination.assume_init() }),
+            NumericArray::new(unsafe { sin_destination.finish(); IntrusiveArrayBuilder::array_assume_init(sin_array) }),
+            NumericArray::new(unsafe { cos_destination.finish(); IntrusiveArrayBuilder::array_assume_init(cos_array) }),
         )
     }
 

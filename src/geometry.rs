@@ -1,6 +1,6 @@
 #![allow(missing_docs)]
 
-use core::ops::{Add, Mul};
+use core::ops::Mul;
 
 use num_traits::{Signed, Zero};
 

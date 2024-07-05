@@ -110,6 +110,7 @@ unsafe impl<T, N: ArrayLength> GenericSequence<T> for NumericArray<T, N> {
     type Length = N;
     type Sequence = Self;
 
+    #[inline(always)]
     fn generate<F>(f: F) -> Self
     where
         F: FnMut(usize) -> T,
