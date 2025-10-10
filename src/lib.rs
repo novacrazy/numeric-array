@@ -56,9 +56,6 @@ pub extern crate generic_array;
 
 pub use generic_array::{typenum, ArrayLength};
 
-#[cfg(feature = "serde1")]
-extern crate serde;
-
 use core::{cmp, ptr, slice};
 
 use core::borrow::{Borrow, BorrowMut};
@@ -73,7 +70,7 @@ use generic_array::functional::*;
 use generic_array::sequence::*;
 use generic_array::{GenericArray, GenericArrayIter};
 
-#[cfg(feature = "serde1")]
+#[cfg(feature = "serde")]
 mod impl_serde;
 
 pub mod geometry;

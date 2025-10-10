@@ -1,4 +1,4 @@
-use serde::{
+use serde_core::{
     de::{Deserialize, Deserializer},
     ser::{Serialize, Serializer},
 };
@@ -60,7 +60,7 @@ mod test {
 
     #[test]
     fn serialize() {
-        let value = NumericArray::from(arr![i32; 1, 2, 3, 4]);
+        let value = NumericArray::from(generic_array::arr![1, 2, 3, 4]);
 
         assert_eq!(to_string(&value).unwrap(), "[1,2,3,4]");
     }
@@ -69,6 +69,6 @@ mod test {
     fn deserialize() {
         let value: NumericArray<i32, _> = from_str("[4, 3, 2, 1]").unwrap();
 
-        assert_eq!(value, NumericArray::from(arr![i32; 4, 3, 2, 1]));
+        assert_eq!(value, NumericArray::from(generic_array::arr![4, 3, 2, 1]));
     }
 }
